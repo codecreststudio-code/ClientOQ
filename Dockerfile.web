@@ -1,0 +1,17 @@
+FROM node:24-alpine AS base
+RUN npm install -g pnpm@10.33.2
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json .env ./
+COPY packages/ ./packages/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+
+RUN pnpm install --frozen-lockfile
+
+COPY apps/web/ ./apps/web/
+
+RUN pnpm --filter @agencyos/web build
+
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@agencyos/web", "start"]

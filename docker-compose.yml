@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=file:/app/packages/database/prisma/dev.db
+      - JWT_SECRET=super-secret-key-agencyos-ai-2026-development
+      - PORT=3001
+    volumes:
+      - sqlite_data:/app/packages/database/prisma
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - api
+
+volumes:
+  sqlite_data:
