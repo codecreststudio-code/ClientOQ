@@ -1,0 +1,178 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 1: Lint & Type Check
+  # ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @clientoq/database exec prisma generate
+        env:
+          DATABASE_URL: "postgresql://localhost/test"
+          DIRECT_URL: "postgresql://localhost/test"
+
+      - name: Build shared packages
+        run: pnpm --filter @clientoq/shared build
+
+      - name: Type check API
+        run: pnpm --filter @clientoq/api exec tsc --noEmit
+        continue-on-error: true
+
+      - name: Type check Web
+        run: pnpm --filter @clientoq/web exec tsc --noEmit
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 2: Test
+  # ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/agencyos_test"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/agencyos_test"
+      JWT_SECRET: "ci-test-secret-32-chars-long-00000"
+      PORT: "3001"
+      NODE_ENV: "test"
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agencyos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client & migrate
+        run: |
+          pnpm --filter @clientoq/database exec prisma generate
+          pnpm --filter @clientoq/database exec prisma migrate deploy
+
+      - name: Run API unit tests
+        run: pnpm --filter @clientoq/api test --passWithNoTests
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 3: Build Verification
+  # ─────────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      DATABASE_URL: "postgresql://localhost/test"
+      DIRECT_URL: "postgresql://localhost/test"
+      JWT_SECRET: "ci-build-secret-32-chars-long-000"
+      NEXT_PUBLIC_API_URL: "http://localhost:3001"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @clientoq/database exec prisma generate
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            apps/api/dist/
+            apps/web/.next/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 4: Security Audit
+  # ─────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies for vulnerabilities
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true

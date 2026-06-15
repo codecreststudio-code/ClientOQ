@@ -48,7 +48,13 @@ Thumbs.db
 
 /generated/prisma
 
+# Google OAuth credentials (NEVER commit)
+client_secret_*.json
+google-credentials.json
+service-account*.json
+
 # Agent/IDE configs and Scratch files
 .agents/
 .claude/
 scratch/
+Plans/

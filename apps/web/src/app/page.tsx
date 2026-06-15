@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { setSentryUserContext } from '@/lib/sentry';
 import { 
   LayoutDashboard, 
   Users, 
@@ -30,20 +31,33 @@ import {
 export default function Home() {
   // Authentication State
   const [user, setUser] = useState<any>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [email, setEmail] = useState('syed@codecrest.com');
   const [password, setPassword] = useState('password123');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [orgName, setOrgName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [sandboxTab, setSandboxTab] = useState<'dashboard' | 'crm' | 'finance'>('dashboard');
 
   // App Navigation State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'crm' | 'clients' | 'projects' | 'finance' | 'whatsapp' | 'automations' | 'portal'>('dashboard');
-  
-  // Dashboard & Analytics Data
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'crm' | 'clients' | 'projects' | 'finance' | 'whatsapp' | 'automations' | 'portal' | 'settings' | 'calendar'>('dashboard');
+
+  // Invites & Profile State
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteDetails, setInviteDetails] = useState<any>(null);
+  const [invitesList, setInvitesList] = useState<any[]>([]);
+  const [newInviteEmail, setNewInviteEmail] = useState('');
+  const [newInviteRole, setNewInviteRole] = useState('Employee');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [profileTimezone, setProfileTimezone] = useState('UTC');
+  const [profileNotificationPref, setProfileNotificationPref] = useState({ email: true, inApp: true, push: false });
+  const [profileStatusMsg, setProfileStatusMsg] = useState('');
+  const [orgUsersList, setOrgUsersList] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<any>(null);
 
   // CRM Module State
@@ -114,22 +128,94 @@ export default function Home() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Global Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  // Stopwatch State
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
+  const [activeTimerSeconds, setActiveTimerSeconds] = useState(0);
+  const [timeLogDesc, setTimeLogDesc] = useState('');
+  const [showSaveTimeLogModal, setShowSaveTimeLogModal] = useState(false);
+  const [timeLogTask, setTimeLogTask] = useState<any>(null);
+
+  // Proposals & Contracts State
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [newProposalTitle, setNewProposalTitle] = useState('');
+  const [newProposalContent, setNewProposalContent] = useState('');
+  const [newProposalAmount, setNewProposalAmount] = useState('');
+  const [showAddProposalModal, setShowAddProposalModal] = useState(false);
+
+  // Client Portal Contracts State
+  const [portalContracts, setPortalContracts] = useState<any[]>([]);
+  const [selectedPortalContract, setSelectedPortalContract] = useState<any>(null);
+  const [typedName, setTypedName] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+
   const aiEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize Check Auth Session
   useEffect(() => {
-    const jwt = localStorage.getItem('agencyos_jwt');
-    const savedUser = localStorage.getItem('agencyos_user');
+    const jwt = localStorage.getItem('clientoq_jwt');
+    const savedUser = localStorage.getItem('clientoq_user');
     if (jwt && savedUser) {
-      setUser(JSON.parse(savedUser));
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      setProfilePhone(parsedUser.phone || '');
+      setProfileBio(parsedUser.bio || '');
+      setProfileTimezone(parsedUser.timezone || 'UTC');
+      if (parsedUser.notificationPreferences) {
+        setProfileNotificationPref(parsedUser.notificationPreferences);
+      }
+      // Fetch latest profile details from DB
+      api.auth.me()
+        .then(data => {
+          if (data && data.user) {
+            setUser(data.user);
+            localStorage.setItem('clientoq_user', JSON.stringify(data.user));
+          }
+        })
+        .catch(err => console.error('Failed to refresh user info:', err));
     }
 
     // Check query params for auth triggers
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const auth = params.get('auth');
-      if (auth === 'login') {
+      const token = params.get('inviteToken');
+      const verified = params.get('verified');
+
+      if (verified === 'true') {
+        setAuthSuccess('Your email has been verified successfully! 🎉');
+        setShowAuthModal(true);
+        setAuthMode('login');
+      } else if (verified === 'false') {
+        setAuthError('Email verification failed. The token is invalid or expired.');
+        setShowAuthModal(true);
+        setAuthMode('login');
+      } else if (token) {
+        setInviteToken(token);
+        setShowAuthModal(true);
+        setAuthMode('register');
+        setAuthError('');
+        // Validate token
+        api.auth.invites.validate(token)
+          .then(details => {
+            setInviteDetails(details);
+            setEmail(details.email);
+            setOrgName(details.organizationName);
+          })
+          .catch(err => {
+            setAuthError(err.message || 'Invitation is invalid or expired');
+          });
+      } else if (auth === 'login') {
         setShowAuthModal(true);
         setAuthMode('login');
         setAuthError('');
@@ -137,9 +223,65 @@ export default function Home() {
         setShowAuthModal(true);
         setAuthMode('register');
         setAuthError('');
+      } else if (auth === 'reset') {
+        const resetTok = params.get('token') || '';
+        setResetToken(resetTok);
+        setShowAuthModal(true);
+        setAuthMode('reset');
+        setAuthError('');
       }
     }
   }, []);
+
+  // Update Sentry user context when user changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSentryUserContext(user);
+    }
+  }, [user]);
+
+  // Load notifications
+  const fetchNotifications = async () => {
+    try {
+      const data = await api.notifications.list();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications();
+    const int = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(int);
+  }, [user]);
+
+  // Stopwatch interval ticker
+  useEffect(() => {
+    let interval: any = null;
+    if (activeTimerTaskId) {
+      interval = setInterval(() => {
+        setActiveTimerSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (interval) clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTimerTaskId]);
+
+  // Load selected lead proposals
+  useEffect(() => {
+    if (selectedLead) {
+      api.crm.proposals.list(selectedLead.id)
+        .then(data => setProposals(data || []))
+        .catch(err => console.error('Failed to load lead proposals:', err));
+    } else {
+      setProposals([]);
+    }
+  }, [selectedLead]);
 
   // Fetch Data on Tab Switch or Auth
   useEffect(() => {
@@ -157,6 +299,7 @@ export default function Home() {
   }, [chatMessages]);
 
   const refreshData = async () => {
+    setDataLoading(true);
     try {
       if (activeTab === 'dashboard') {
         const data = await api.analytics.getDashboardData();
@@ -195,9 +338,26 @@ export default function Home() {
         setInvoices(invs.filter((i: any) => i.client.companyName === 'Acme Corporation'));
         const projs = await api.projects.getProjects();
         setProjects(projs.filter((p: any) => p.client.companyName === 'Acme Corporation'));
+        const clientsList = await api.clients.getClients().catch(() => []);
+        const targetClient = clientsList.find((c: any) => c.companyName === 'Acme Corporation') || clientsList[0];
+        const targetClientId = targetClient ? targetClient.id : 'client-1';
+        const contracts = await api.crm.contracts.list(targetClientId).catch(() => []);
+        setPortalContracts(contracts || []);
+      } else if (activeTab === 'calendar') {
+        const projs = await api.projects.getProjects();
+        setProjects(projs || []);
+      } else if (activeTab === 'settings') {
+        const list = await api.auth.invites.list().catch(() => []);
+        setInvitesList(list);
+        const users = await api.auth.getUsers().catch(() => []);
+        setOrgUsersList(users);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
+    } finally {
+      setTimeout(() => {
+        setDataLoading(false);
+      }, 300);
     }
   };
 
@@ -207,8 +367,8 @@ export default function Home() {
     try {
       const res = await api.auth.login({ email, password });
       if (res.token) {
-        localStorage.setItem('agencyos_jwt', res.token);
-        localStorage.setItem('agencyos_user', JSON.stringify(res.user));
+        localStorage.setItem('clientoq_jwt', res.token);
+        localStorage.setItem('clientoq_user', JSON.stringify(res.user));
       }
       setUser(res.user);
     } catch (err: any) {
@@ -220,12 +380,26 @@ export default function Home() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await api.auth.register({ orgName, firstName, lastName, email, password });
+      let res;
+      if (inviteToken) {
+        res = await api.auth.invites.accept({
+          token: inviteToken,
+          firstName,
+          lastName,
+          password
+        });
+      } else {
+        res = await api.auth.register({ orgName, firstName, lastName, email, password });
+      }
       if (res.token) {
-        localStorage.setItem('agencyos_jwt', res.token);
-        localStorage.setItem('agencyos_user', JSON.stringify(res.user));
+        localStorage.setItem('clientoq_jwt', res.token);
+        localStorage.setItem('clientoq_user', JSON.stringify(res.user));
       }
       setUser(res.user);
+      setShowAuthModal(false);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     } catch (err: any) {
       setAuthError(err.message || 'Registration failed');
     }
@@ -234,6 +408,49 @@ export default function Home() {
   const handleLogout = () => {
     api.auth.logout();
     setUser(null);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      setAuthSuccess(data.message || 'Reset email sent! Check your inbox.');
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to send reset email.');
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    if (password.length < 8) {
+      setAuthError('Password must be at least 8 characters.');
+      return;
+    }
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, newPassword: password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuthSuccess('Password reset! You can now log in.');
+        setTimeout(() => { setAuthMode('login'); setAuthSuccess(''); }, 2000);
+      } else {
+        setAuthError(data.message || 'Failed to reset password.');
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to reset password.');
+    }
   };
 
   // Lead Actions
@@ -479,6 +696,63 @@ export default function Home() {
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const token = localStorage.getItem('clientoq_jwt');
+      const response = await fetch('http://localhost:3001/api/reports/invoices/csv', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to generate CSV');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoices-ledger-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const token = localStorage.getItem('clientoq_jwt');
+      const response = await fetch('http://localhost:3001/api/reports/invoices/pdf', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to generate statement');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoices-statement-${Date.now()}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const res = await api.crm.importLeadsCsv(file);
+      alert(res.message || 'Successfully imported leads.');
+      refreshData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to import CSV');
+    }
+  };
+
+
   // WhatsApp Actions
   const handleSelectConversation = async (conv: any) => {
     try {
@@ -537,6 +811,116 @@ export default function Home() {
       console.error(err);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // Global Search Handlers
+  const handleSearchChange = async (val: string) => {
+    setSearchQuery(val);
+    if (!val.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    try {
+      const res = await api.search.query(val);
+      setSearchResults(res);
+    } catch (err) {
+      console.error('Search failed:', err);
+    }
+  };
+
+  const handleSearchResultClick = async (type: string, item: any) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
+    setSearchResults(null);
+
+    if (type === 'lead') {
+      setActiveTab('crm');
+      setSelectedLead(item);
+    } else if (type === 'client') {
+      setActiveTab('clients');
+      handleSelectClient(item);
+    } else if (type === 'project') {
+      setActiveTab('projects');
+      handleSelectProject(item);
+    } else if (type === 'task') {
+      setActiveTab('projects');
+      const proj = projects.find(p => p.id === item.projectId) || item.project;
+      if (proj) {
+        await handleSelectProject(proj);
+      }
+    } else if (type === 'invoice') {
+      setActiveTab('finance');
+      setSelectedInvoice(item);
+    } else if (type === 'expense') {
+      setActiveTab('finance');
+    }
+  };
+
+  // Stopwatch & Notification handlers
+  const formatTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${remainingSecs.toString().padStart(2, '0')}`;
+  };
+
+  const handleStartTimer = (taskId: string) => {
+    if (activeTimerTaskId) {
+      alert('Another task timer is active. Please save or discard it first.');
+      return;
+    }
+    setActiveTimerTaskId(taskId);
+    setActiveTimerSeconds(0);
+  };
+
+  const handlePauseAndSave = (task: any) => {
+    setTimeLogTask(task);
+    setShowSaveTimeLogModal(true);
+    setActiveTimerTaskId(null);
+  };
+
+  const handleConfirmSaveTimeLog = async () => {
+    if (!timeLogTask) return;
+    const durationMinutes = Math.max(1, Math.round(activeTimerSeconds / 60));
+    try {
+      await api.projects.addTimeLog(timeLogTask.id, {
+        duration: durationMinutes,
+        description: timeLogDesc || 'Task time logging'
+      });
+      setActiveTimerTaskId(null);
+      setActiveTimerSeconds(0);
+      setTimeLogDesc('');
+      setShowSaveTimeLogModal(false);
+      setTimeLogTask(null);
+      if (selectedProject) handleSelectProject(selectedProject);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDiscardTimeLog = () => {
+    setActiveTimerTaskId(null);
+    setActiveTimerSeconds(0);
+    setTimeLogDesc('');
+    setShowSaveTimeLogModal(false);
+    setTimeLogTask(null);
+  };
+
+  const handleMarkNotifRead = async (id: string) => {
+    try {
+      await api.notifications.read(id);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    try {
+      await api.notifications.delete(id);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -902,6 +1286,63 @@ export default function Home() {
                   </div>
                 )}
 
+                {authSuccess && (
+                  <div className="bg-green-950/50 border border-green-500/30 text-green-200 p-3 rounded text-sm mb-4 flex items-center gap-2">
+                    <CheckCircle size={16} className="shrink-0 text-green-400" />
+                    <span>{authSuccess}</span>
+                  </div>
+                )}
+
+                {/* FORGOT PASSWORD FORM */}
+                {authMode === 'forgot' && (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <p className="text-body-text text-xs">Enter your email and we'll send a reset link.</p>
+                    <div>
+                      <label className="block text-xs font-semibold text-body-text mb-1 uppercase tracking-wider">Email Address</label>
+                      <input
+                        type="email"
+                        className="w-full bg-canvas border border-hairline p-3 rounded-sm text-sm focus:outline-none focus:border-primary text-ink"
+                        placeholder="you@agency.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="w-full bg-primary hover:opacity-90 text-on-primary text-sm font-medium p-3 rounded-sm transition-all uppercase tracking-widest font-mono">
+                      Send Reset Link
+                    </button>
+                    <div className="text-center text-xs">
+                      <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }} className="text-primary underline hover:opacity-80">
+                        ← Back to Login
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* RESET PASSWORD FORM */}
+                {authMode === 'reset' && (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <p className="text-body-text text-xs">Enter your new password below.</p>
+                    <div>
+                      <label className="block text-xs font-semibold text-body-text mb-1 uppercase tracking-wider">New Password</label>
+                      <input
+                        type="password"
+                        className="w-full bg-canvas border border-hairline p-3 rounded-sm text-sm focus:outline-none focus:border-primary text-ink"
+                        placeholder="Min. 8 characters"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        minLength={8}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="w-full bg-primary hover:opacity-90 text-on-primary text-sm font-medium p-3 rounded-sm transition-all uppercase tracking-widest font-mono">
+                      Reset Password
+                    </button>
+                  </form>
+                )}
+
+                {/* LOGIN / REGISTER FORM */}
+                {(authMode === 'login' || authMode === 'register') && (
                 <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
                   {authMode === 'register' && (
                     <>
@@ -973,9 +1414,19 @@ export default function Home() {
                   >
                     {authMode === 'login' ? 'Enter Console' : 'Initialize Tenant'}
                   </button>
+                  {authMode === 'login' && (
+                    <div className="text-right">
+                      <button type="button" onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccess(''); }} className="text-xs text-mute hover:text-primary underline transition-colors">
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
                 </form>
+                )}
 
                 <div className="mt-6 text-center text-xs">
+                  {(authMode === 'login' || authMode === 'register') && (
+                  <>
                   <span className="text-body-text">
                     {authMode === 'login' ? "New operation?" : "Have workspace keys?"}
                   </span>{' '}
@@ -985,6 +1436,8 @@ export default function Home() {
                   >
                     {authMode === 'login' ? 'Initialize Studio Plan' : 'Login'}
                   </button>
+                  </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1047,6 +1500,14 @@ export default function Home() {
               </button>
 
               <button
+                onClick={() => setActiveTab('calendar')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'calendar' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
+              >
+                <Clock size={16} />
+                <span>Deadline Calendar</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('finance')}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'finance' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
               >
@@ -1081,6 +1542,14 @@ export default function Home() {
                 <Eye size={16} />
                 <span>Client Portal View</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'settings' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
+              >
+                <Settings size={16} />
+                <span>Workspace Settings</span>
+              </button>
             </nav>
 
             {/* User Details */}
@@ -1107,8 +1576,42 @@ export default function Home() {
           {/* Main workspace container */}
           <main className="flex-1 flex flex-col overflow-hidden bg-canvas">
             
+            {user && user.isEmailVerified === false && (
+              <div className="bg-yellow-950/20 border-b border-yellow-900/30 px-8 py-2.5 flex items-center justify-between text-xs text-yellow-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                  <span>Please check your inbox to verify your email address. Workspace features may be limited until verified.</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('clientoq_jwt');
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/resend-verification`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        }
+                      });
+                      if (res.ok) {
+                        alert('Verification email has been resent successfully!');
+                      } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.message || 'Failed to resend verification email.');
+                      }
+                    } catch (e) {
+                      alert('Failed to resend verification email.');
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-semibold rounded-sm transition-colors text-[10px] uppercase tracking-wider"
+                >
+                  Resend Verification
+                </button>
+              </div>
+            )}
+
             {/* Header */}
-            <header className="h-16 border-b border-hairline flex items-center justify-between px-8 bg-canvas select-none">
+            <header className="h-16 border-b border-hairline flex items-center justify-between px-8 bg-canvas select-none relative">
               <div className="flex items-center gap-4">
                 <h2 className="text-sm font-semibold tracking-wide uppercase font-mono text-ink">
                   {activeTab === 'dashboard' && 'Operations Dashboard'}
@@ -1119,10 +1622,194 @@ export default function Home() {
                   {activeTab === 'whatsapp' && 'WhatsApp Communications'}
                   {activeTab === 'automations' && 'Rule Automation Engine'}
                   {activeTab === 'portal' && 'Acme Corp Portal (Client View)'}
+                  {activeTab === 'calendar' && 'Sprint Deadline Calendar'}
                 </h2>
               </div>
 
+              {/* Global Search Bar */}
+              <div className="flex-1 max-w-sm mx-8 relative z-50">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Search workstation..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onFocus={() => setShowSearchResults(true)}
+                    className="w-full bg-canvas-soft border border-hairline rounded-sm px-3.5 py-1.5 text-xs text-ink placeholder:text-mute focus:outline-none focus:border-primary font-mono tracking-tight transition-colors duration-150"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => handleSearchChange('')}
+                      className="absolute right-2.5 text-mute hover:text-ink transition-colors cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {showSearchResults && (
+                  <>
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowSearchResults(false)}></div>
+                    {searchResults && (
+                      <div className="absolute top-full left-0 right-0 mt-1.5 bg-canvas-soft border border-hairline rounded-sm shadow-xl z-50 max-h-96 overflow-y-auto font-mono text-[11px] divide-y divide-hairline">
+                        
+                        {/* Leads Results */}
+                        {searchResults.leads && searchResults.leads.length > 0 && (
+                          <div className="p-2.5">
+                            <div className="text-[9px] uppercase tracking-widest text-mute font-semibold px-2 mb-1">Leads</div>
+                            {searchResults.leads.map((l: any) => (
+                              <div
+                                key={l.id}
+                                onClick={() => handleSearchResultClick('lead', l)}
+                                className="px-2 py-1.5 rounded-xs hover:bg-canvas cursor-pointer flex items-center justify-between text-ink"
+                              >
+                                <span>{l.firstName} {l.lastName} ({l.companyName || 'No Company'})</span>
+                                <span className="text-[9px] text-mute uppercase">{l.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Clients Results */}
+                        {searchResults.clients && searchResults.clients.length > 0 && (
+                          <div className="p-2.5">
+                            <div className="text-[9px] uppercase tracking-widest text-mute font-semibold px-2 mb-1">Clients</div>
+                            {searchResults.clients.map((c: any) => (
+                              <div
+                                key={c.id}
+                                onClick={() => handleSearchResultClick('client', c)}
+                                className="px-2 py-1.5 rounded-xs hover:bg-canvas cursor-pointer text-ink"
+                              >
+                                {c.companyName}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Projects Results */}
+                        {searchResults.projects && searchResults.projects.length > 0 && (
+                          <div className="p-2.5">
+                            <div className="text-[9px] uppercase tracking-widest text-mute font-semibold px-2 mb-1">Projects</div>
+                            {searchResults.projects.map((p: any) => (
+                              <div
+                                key={p.id}
+                                onClick={() => handleSearchResultClick('project', p)}
+                                className="px-2 py-1.5 rounded-xs hover:bg-canvas cursor-pointer flex items-center justify-between text-ink"
+                              >
+                                <span>{p.name}</span>
+                                <span className="text-[9px] text-mute uppercase">{p.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Tasks Results */}
+                        {searchResults.tasks && searchResults.tasks.length > 0 && (
+                          <div className="p-2.5">
+                            <div className="text-[9px] uppercase tracking-widest text-mute font-semibold px-2 mb-1">Tasks</div>
+                            {searchResults.tasks.map((t: any) => (
+                              <div
+                                key={t.id}
+                                onClick={() => handleSearchResultClick('task', t)}
+                                className="px-2 py-1.5 rounded-xs hover:bg-canvas cursor-pointer flex items-center justify-between text-ink"
+                              >
+                                <span>{t.title} <span className="text-[10px] text-mute">in {t.project ? t.project.name : 'Project'}</span></span>
+                                <span className="text-[9px] text-mute uppercase">{t.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Invoices Results */}
+                        {searchResults.invoices && searchResults.invoices.length > 0 && (
+                          <div className="p-2.5">
+                            <div className="text-[9px] uppercase tracking-widest text-mute font-semibold px-2 mb-1">Invoices</div>
+                            {searchResults.invoices.map((i: any) => (
+                              <div
+                                key={i.id}
+                                onClick={() => handleSearchResultClick('invoice', i)}
+                                className="px-2 py-1.5 rounded-xs hover:bg-canvas cursor-pointer flex items-center justify-between text-ink"
+                              >
+                                <span>{i.invoiceNumber} ({i.client?.companyName})</span>
+                                <span className="text-[9px] text-mute uppercase">{i.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Empty State */}
+                        {Object.values(searchResults).every((arr: any) => !arr || arr.length === 0) && (
+                          <div className="p-4 text-center text-mute text-[10px]">
+                            No matches found for "{searchQuery}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
               <div className="flex items-center gap-3">
+                {/* Notification Bell */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                    className="relative p-2 bg-canvas border border-hairline text-ink hover:bg-canvas-soft rounded-sm transition-colors cursor-pointer flex items-center justify-center"
+                    title="Workspace Alerts"
+                  >
+                    <Clock size={14} />
+                    {notifications.filter((n: any) => !n.isRead).length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-ping"></span>
+                    )}
+                  </button>
+
+                  {showNotifDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotifDropdown(false)}></div>
+                      <div className="absolute right-0 mt-2 w-80 bg-canvas-soft border border-hairline rounded-sm shadow-xl z-50 p-3 font-mono text-[10px]">
+                        <div className="flex justify-between items-center pb-2 border-b border-hairline mb-2 select-none">
+                          <span className="text-mute uppercase tracking-wider font-semibold">Workspace Alerts</span>
+                          <span className="text-mute">({notifications.filter(n => !n.isRead).length} Unread)</span>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                          {notifications.length === 0 ? (
+                            <div className="p-4 text-center text-mute select-none">No notifications</div>
+                          ) : (
+                            notifications.map((notif: any) => (
+                              <div
+                                key={notif.id}
+                                className={`p-2 rounded-xs border flex flex-col justify-between ${notif.isRead ? 'border-hairline bg-canvas/20 opacity-60' : 'border-primary bg-canvas/40'}`}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <span className="font-bold text-ink">{notif.title}</span>
+                                  <span className="text-mute text-[8px]">{new Date(notif.createdAt).toLocaleTimeString()}</span>
+                                </div>
+                                <p className="text-body-text mt-1 leading-normal text-[9px]">{notif.message}</p>
+                                <div className="flex justify-end gap-3 mt-2">
+                                  {!notif.isRead && (
+                                    <button
+                                      onClick={() => handleMarkNotifRead(notif.id)}
+                                      className="text-primary hover:underline font-bold cursor-pointer"
+                                    >
+                                      Mark read
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteNotif(notif.id)}
+                                    className="text-red-400 hover:underline font-bold cursor-pointer"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setShowAIDrawer(!showAIDrawer)}
                   className="bg-canvas border border-hairline text-ink text-xs font-medium px-3.5 py-1.5 rounded-sm hover:bg-canvas-soft flex items-center gap-2 transition-all duration-150 uppercase tracking-widest font-mono"
@@ -1132,6 +1819,7 @@ export default function Home() {
                 </button>
               </div>
             </header>
+
 
             {/* Page content scroll container */}
             <div className="flex-1 overflow-y-auto p-8 max-w-7xl w-full mx-auto">
@@ -1291,13 +1979,25 @@ export default function Home() {
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Leads Pipeline Board</h3>
-                    <button
-                      onClick={() => setShowAddLeadModal(true)}
-                      className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono"
-                    >
-                      <Plus size={14} />
-                      <span>Add Lead</span>
-                    </button>
+                    <div className="flex gap-3">
+                      <label className="bg-canvas border border-hairline text-ink text-xs font-semibold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest font-mono cursor-pointer flex items-center gap-2">
+                        <span>Import CSV</span>
+                        <input
+                          id="crm-csv-upload"
+                          type="file"
+                          accept=".csv"
+                          onChange={handleImportCSV}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        onClick={() => setShowAddLeadModal(true)}
+                        className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono"
+                      >
+                        <Plus size={14} />
+                        <span>Add Lead</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Kanban Columns */}
@@ -1418,6 +2118,92 @@ export default function Home() {
                           </form>
                         </div>
 
+                        {/* Proposals & Contracts Section */}
+                        <div className="border-t border-hairline pt-6 mb-6">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-mute">Proposals & Contracts</h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddProposalModal(true);
+                                setNewProposalTitle(`Proposal for: ${selectedLead.companyName || 'Lead Project'}`);
+                                setNewProposalContent(`Project Scope & Deliverables Outline:\n1. Core system architecture.\n2. Iterative module sprint design.`);
+                                setNewProposalAmount(selectedLead.estimatedValue ? selectedLead.estimatedValue.toString() : '50000');
+                              }}
+                              className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-3 py-1.5 rounded-xs uppercase tracking-wider font-mono cursor-pointer"
+                            >
+                              + Draft Proposal
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 font-mono text-xs max-h-48 overflow-y-auto pr-2">
+                            {proposals.length === 0 ? (
+                              <p className="text-mute italic">No proposals drafted for this lead yet.</p>
+                            ) : (
+                              proposals.map((prop: any) => (
+                                <div key={prop.id} className="bg-canvas border border-hairline/40 p-3 rounded-sm flex flex-col gap-2">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <span className="font-bold text-ink">{prop.title}</span>
+                                      <span className="text-mute block text-[9px] mt-0.5">Value: ₹{prop.amount.toLocaleString()}</span>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase tracking-wider ${
+                                      prop.status === 'Accepted' ? 'bg-green-950/60 text-green-300' : 'bg-canvas border border-hairline text-mute'
+                                    }`}>
+                                      {prop.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-body-text text-[10px] font-serif italic whitespace-pre-line">{prop.content}</p>
+
+                                  {prop.status !== 'Accepted' && (
+                                    <div className="flex justify-end gap-2 mt-1 pt-2 border-t border-hairline/30">
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const clientsList = await api.clients.getClients();
+                                          let targetClient = clientsList.find((c: any) => c.companyName.toLowerCase().includes((selectedLead.companyName || '').toLowerCase()));
+                                          if (!targetClient && clientsList.length > 0) {
+                                            targetClient = clientsList[0];
+                                          }
+                                          if (!targetClient) {
+                                            alert("Please register a Client Account first in the Clients tab before accepting proposals.");
+                                            return;
+                                          }
+                                          try {
+                                            await api.crm.proposals.createContract(prop.id, { clientId: targetClient.id });
+                                            const list = await api.crm.proposals.list(selectedLead.id);
+                                            setProposals(list);
+                                            refreshData();
+                                          } catch (err: any) {
+                                            alert(err.message);
+                                          }
+                                        }}
+                                        className="bg-primary hover:opacity-90 text-on-primary text-[9px] px-2.5 py-1 rounded-xs font-bold uppercase cursor-pointer"
+                                      >
+                                        Accept & Generate Contract
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {prop.contract && (
+                                    <div className="mt-1.5 p-2 bg-canvas-soft border border-hairline rounded-xs flex justify-between items-center text-[10px]">
+                                      <div>
+                                        <span className="text-mute font-mono uppercase text-[9px]">Contract Generated</span>
+                                        <span className="block font-semibold text-ink">{prop.contract.title}</span>
+                                      </div>
+                                      <span className={`px-1.5 py-0.2 rounded-xs font-bold text-[8px] uppercase tracking-wider ${
+                                        prop.contract.signed ? 'bg-green-950 text-green-300' : 'bg-yellow-950 text-yellow-300'
+                                      }`}>
+                                        {prop.contract.signed ? 'Signed' : 'Unsigned'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
                         {/* Activities Feed */}
                         <div>
                           <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-mute">Activity Feed</h3>
@@ -1536,6 +2322,82 @@ export default function Home() {
                             className="w-full bg-primary text-on-primary font-bold py-3 rounded-sm uppercase tracking-widest text-xs mt-2 hover:opacity-95 transition-opacity"
                           >
                             Create Lead Card
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Draft Proposal Modal */}
+                  {showAddProposalModal && selectedLead && (
+                    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                      <div className="bg-canvas-soft border border-hairline w-full max-w-md p-8 rounded-md shadow-2xl relative">
+                        <button
+                          onClick={() => setShowAddProposalModal(false)}
+                          className="absolute top-6 right-6 text-mute hover:text-ink cursor-pointer"
+                        >
+                          <X size={20} />
+                        </button>
+                        <h2 className="text-lg font-bold font-mono uppercase tracking-wider mb-6 text-primary border-b border-hairline pb-2">Draft Lead Proposal</h2>
+                        <form onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            await api.crm.proposals.create({
+                              leadId: selectedLead.id,
+                              title: newProposalTitle,
+                              content: newProposalContent,
+                              amount: newProposalAmount
+                            });
+                            setNewProposalTitle('');
+                            setNewProposalContent('');
+                            setNewProposalAmount('');
+                            setShowAddProposalModal(false);
+                            // Reload proposals
+                            const list = await api.crm.proposals.list(selectedLead.id);
+                            setProposals(list);
+                            refreshData();
+                          } catch (err: any) {
+                            alert(err.message);
+                          }
+                        }} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Proposal Title</label>
+                            <input
+                              type="text"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                              placeholder="e.g. Acme Web Portal Development"
+                              value={newProposalTitle}
+                              onChange={e => setNewProposalTitle(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Content & Scope</label>
+                            <textarea
+                              rows={4}
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                              placeholder="Outline project terms and deliverables..."
+                              value={newProposalContent}
+                              onChange={e => setNewProposalContent(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Proposed Amount (₹)</label>
+                            <input
+                              type="number"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                              placeholder="120000"
+                              value={newProposalAmount}
+                              onChange={e => setNewProposalAmount(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary font-bold py-3 rounded-sm uppercase tracking-widest text-xs mt-2 hover:opacity-95 transition-opacity"
+                          >
+                            Submit Draft Proposal
                           </button>
                         </form>
                       </div>
@@ -1893,6 +2755,55 @@ export default function Home() {
                           </div>
                         </div>
 
+                        {/* Attached Files Card */}
+                        <div className="bg-canvas-soft border border-hairline p-5 rounded-md mt-6">
+                          <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-3 font-semibold">Attached Project Files</span>
+                          
+                          {/* File list */}
+                          <div className="space-y-2 font-mono text-[11px] mb-4 max-h-40 overflow-y-auto pr-1">
+                            {(!selectedProject.files || selectedProject.files.length === 0) ? (
+                              <p className="text-mute italic select-none">No files attached to board.</p>
+                            ) : (
+                              selectedProject.files.map((rel: any) => {
+                                const fileObj = rel.file || rel;
+                                return (
+                                  <div key={fileObj.id} className="flex justify-between items-center border-b border-hairline/20 pb-1.5 last:border-0 last:pb-0">
+                                    <span className="text-ink truncate max-w-[140px]" title={fileObj.fileName}>{fileObj.fileName}</span>
+                                    <a
+                                      href={`http://localhost:3001/api/files/${fileObj.id}/download`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline font-bold"
+                                    >
+                                      Download
+                                    </a>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Upload form */}
+                          <div className="border-t border-hairline/40 pt-3">
+                            <label className="block text-[9px] uppercase tracking-wider text-mute mb-2">Upload Workspace Asset</label>
+                            <input
+                              type="file"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  await api.projects.uploadProjectFile(selectedProject.id, file);
+                                  handleSelectProject(selectedProject); // Reload details
+                                } catch (err: any) {
+                                  alert(err.message);
+                                }
+                              }}
+                              className="w-full text-[10px] text-mute file:mr-2.5 file:py-1 file:px-2 file:rounded-xs file:border-0 file:text-[9px] file:font-mono file:uppercase file:bg-canvas file:text-mute file:hover:text-ink cursor-pointer file:cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+
                         {/* Project Tasks board column (Kanban split in detailed view) */}
                         <div className="bg-canvas-soft border border-hairline p-5 rounded-md col-span-2 space-y-4">
                           <span className="block text-[10px] uppercase font-mono tracking-wider text-mute font-semibold">Active Tasks Log</span>
@@ -1913,6 +2824,35 @@ export default function Home() {
                                   </select>
                                 </div>
                                 <p className="text-xs text-body-text leading-relaxed font-sans mb-3">{task.description || 'No description notes.'}</p>
+
+                                {/* Stopwatch Widget */}
+                                <div className="flex items-center gap-4 bg-canvas-soft/30 px-3.5 py-2 border border-hairline rounded-sm mb-3 font-mono text-xs select-none">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <Clock size={12} className={activeTimerTaskId === task.id ? 'text-orange-400 animate-pulse' : 'text-mute'} />
+                                    <span className="text-mute text-[9px] uppercase font-semibold">Stopwatch:</span>
+                                    <span className="text-ink font-bold font-mono">
+                                      {activeTimerTaskId === task.id ? formatTime(activeTimerSeconds) : '00:00'}
+                                    </span>
+                                    <span className="text-mute text-[9px]">({task.actualHours || 0} hrs logged)</span>
+                                  </div>
+                                  <div>
+                                    {activeTimerTaskId === task.id ? (
+                                      <button
+                                        onClick={() => handlePauseAndSave(task)}
+                                        className="bg-primary text-on-primary hover:opacity-90 font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
+                                      >
+                                        Log Hours
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleStartTimer(task.id)}
+                                        className="border border-hairline bg-canvas hover:bg-canvas-soft text-mute hover:text-ink font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
+                                      >
+                                        Start Timer
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
 
                                 {/* Checklist sub-section */}
                                 {task.checklists && task.checklists.length > 0 && (
@@ -1985,6 +2925,56 @@ export default function Home() {
                       </div>
                     </div>
                   )}
+
+                  {/* Save Time Log Modal */}
+                  {showSaveTimeLogModal && timeLogTask && (
+                    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                      <div className="bg-canvas-soft border border-hairline w-full max-w-md p-8 rounded-md shadow-2xl relative">
+                        <button
+                          onClick={handleDiscardTimeLog}
+                          className="absolute top-6 right-6 text-mute hover:text-ink"
+                        >
+                          <X size={20} />
+                        </button>
+                        <h2 className="text-lg font-bold font-mono uppercase tracking-wider mb-6 text-primary border-b border-hairline pb-2">Log Sprint Time</h2>
+                        <div className="space-y-4 font-mono text-xs text-body-strong">
+                          <p>
+                            You have tracked **{formatTime(activeTimerSeconds)}** on task: <br/>
+                            <strong className="text-ink">"{timeLogTask.title}"</strong>
+                          </p>
+                          <p className="text-[10px] text-mute">
+                            This duration will be saved as **{Math.max(1, Math.round(activeTimerSeconds / 60))} minutes** and added to the cumulative project log.
+                          </p>
+                          <div>
+                            <label className="block text-mute mb-1">Description of work done</label>
+                            <input
+                              type="text"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                              placeholder="e.g. Worked on database schema validation..."
+                              value={timeLogDesc}
+                              onChange={e => setTimeLogDesc(e.target.value)}
+                            />
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                            <button
+                              onClick={handleConfirmSaveTimeLog}
+                              className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:opacity-95 transition-opacity cursor-pointer"
+                            >
+                              Save Log
+                            </button>
+                            <button
+                              onClick={handleDiscardTimeLog}
+                              className="flex-1 border border-hairline bg-canvas text-mute font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:text-ink transition-colors cursor-pointer"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+
 
                   {/* Create Project Modal */}
                   {showAddProjectModal && (
@@ -2189,20 +3179,33 @@ export default function Home() {
                     <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Financial Invoices Ledger</h3>
                     <div className="flex gap-3">
                       <button
+                        onClick={handleExportCSV}
+                        className="bg-canvas border border-hairline text-ink text-xs font-semibold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest font-mono cursor-pointer"
+                      >
+                        Export CSV
+                      </button>
+                      <button
+                        onClick={handleExportPDF}
+                        className="bg-canvas border border-hairline text-ink text-xs font-semibold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest font-mono cursor-pointer"
+                      >
+                        Export PDF
+                      </button>
+                      <button
                         onClick={() => setShowAddExpenseModal(true)}
-                        className="bg-canvas border border-hairline text-ink text-xs font-semibold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest font-mono"
+                        className="bg-canvas border border-hairline text-ink text-xs font-semibold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest font-mono cursor-pointer"
                       >
                         <Plus size={14} className="inline mr-1" />
                         <span>Log Expense</span>
                       </button>
                       <button
                         onClick={() => setShowAddInvoiceModal(true)}
-                        className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono"
+                        className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono cursor-pointer"
                       >
                         <Plus size={14} />
                         <span>Generate Invoice</span>
                       </button>
                     </div>
+
                   </div>
 
                   {/* Invoices Index Table */}
@@ -2788,6 +3791,474 @@ export default function Home() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Contracts & E-Signatures */}
+                  <div className="bg-canvas border border-hairline p-6 rounded-md">
+                    <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-4 font-semibold">Contracts & E-Signatures</span>
+                    <div className="space-y-3 font-mono text-xs">
+                      {portalContracts.length === 0 ? (
+                        <p className="text-xs text-mute italic select-none">No pending contracts for signature.</p>
+                      ) : (
+                        portalContracts.map(contract => (
+                          <div key={contract.id} className="bg-canvas-soft border border-hairline/60 p-4 rounded flex justify-between items-center text-xs">
+                            <div>
+                              <span className="font-bold text-ink">{contract.title}</span>
+                              <div className="text-[10px] text-mute mt-1">
+                                {contract.signed 
+                                  ? `Signed on ${new Date(contract.signedAt).toLocaleDateString()}` 
+                                  : 'Awaiting digital e-signature'
+                                }
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              {contract.signed ? (
+                                <span className="px-2 py-0.5 bg-green-950 text-green-300 text-[9px] uppercase font-bold tracking-wider rounded-xs">Signed & Active</span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedPortalContract(contract);
+                                    setAcceptTerms(false);
+                                    setTypedName('');
+                                  }}
+                                  className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-4 py-2 rounded-xs uppercase tracking-wider cursor-pointer"
+                                >
+                                  Review & Sign
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* E-Signature & Contract Sign Modal */}
+                  {selectedPortalContract && (
+                    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                      <div className="bg-canvas-soft border border-hairline w-full max-w-lg p-8 rounded-md shadow-2xl relative">
+                        <button
+                          onClick={() => setSelectedPortalContract(null)}
+                          className="absolute top-6 right-6 text-mute hover:text-ink cursor-pointer"
+                        >
+                          <X size={20} />
+                        </button>
+                        <h2 className="text-lg font-bold font-mono uppercase tracking-wider mb-6 text-primary border-b border-hairline pb-2">Contract E-Signature</h2>
+                        
+                        <div className="space-y-4 font-mono text-xs text-body-strong">
+                          <div>
+                            <span className="block text-[10px] text-mute uppercase tracking-wider mb-1">Contract Title</span>
+                            <span className="text-sm font-bold text-ink">{selectedPortalContract.title}</span>
+                          </div>
+                          
+                          <div className="bg-canvas border border-hairline p-4 rounded-sm max-h-48 overflow-y-auto space-y-3 font-serif italic text-xs leading-relaxed">
+                            <p className="font-bold font-mono not-italic uppercase text-[9px] text-mute">Statement of Work Terms:</p>
+                            <p>
+                              By signing this document, the client agrees to the scope of work outlined in the project proposal and associated fees.
+                            </p>
+                            <p>
+                              Payment terms are standard Net-30 unless specified otherwise. Deliverables will be deployed iteratively in sprints.
+                            </p>
+                            <p>
+                              Any modifications to scope must be agreed upon in writing by both parties.
+                            </p>
+                          </div>
+
+                          {/* Signature drawing pad or typed name */}
+                          <div className="space-y-2">
+                            <label className="block text-mute">Draw Signature (Click & Drag below to Draw)</label>
+                            
+                            {/* Visual Canvas signature pad */}
+                            <SignaturePad onDraw={(dataUrl) => setTypedName(dataUrl)} />
+                            
+                            <div className="pt-2">
+                              <label className="block text-mute mb-1">Or Type Your Full Name for E-Consent</label>
+                              <input
+                                type="text"
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                                placeholder="e.g. John Doe"
+                                value={typedName.startsWith('data:') ? '' : typedName}
+                                onChange={e => setTypedName(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <label className="flex items-start gap-2.5 text-mute cursor-pointer select-none py-1">
+                            <input
+                              type="checkbox"
+                              checked={acceptTerms}
+                              onChange={e => setAcceptTerms(e.target.checked)}
+                              className="mt-0.5 rounded border-hairline bg-canvas text-primary shrink-0"
+                            />
+                            <span className="leading-snug">
+                              I accept all terms and conditions and certify that the signature provided is legally binding.
+                            </span>
+                          </label>
+
+                          <div className="flex gap-3 pt-2">
+                            <button
+                              disabled={!acceptTerms || !typedName}
+                              onClick={async () => {
+                                try {
+                                  await api.crm.contracts.sign(selectedPortalContract.id, {
+                                    signatureData: typedName
+                                  });
+                                  setSelectedPortalContract(null);
+                                  refreshData();
+                                } catch (err: any) {
+                                  alert(err.message);
+                                }
+                              }}
+                              className="flex-grow bg-primary text-on-primary font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              Sign Contract
+                            </button>
+                            <button
+                              onClick={() => setSelectedPortalContract(null)}
+                              className="flex-grow border border-hairline bg-canvas text-mute font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:text-ink transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+              {/* TAB: DEADLINE CALENDAR */}
+              {activeTab === 'calendar' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Sprint Deadline Calendar</h3>
+                    <div className="text-xs font-mono text-mute bg-canvas-soft border border-hairline px-3 py-1 rounded-sm select-none">
+                      Month: {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </div>
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="bg-canvas-soft border border-hairline rounded-md p-6">
+                    <div className="grid grid-cols-7 gap-2 text-center text-xs font-mono font-bold text-mute uppercase tracking-wider mb-4 border-b border-hairline pb-2 select-none">
+                      <div>Sun</div>
+                      <div>Mon</div>
+                      <div>Tue</div>
+                      <div>Wed</div>
+                      <div>Thu</div>
+                      <div>Fri</div>
+                      <div>Sat</div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                      {(() => {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = now.getMonth();
+                        const firstDayIndex = new Date(year, month, 1).getDay();
+                        const totalDays = new Date(year, month + 1, 0).getDate();
+                        
+                        const gridCells = [];
+                        // Fill empty cells before the 1st of the month
+                        for (let i = 0; i < firstDayIndex; i++) {
+                          gridCells.push(<div key={`empty-${i}`} className="h-24 bg-canvas/10 border border-hairline/20 rounded-xs"></div>);
+                        }
+
+                        // Fill cells with actual days of the month
+                        for (let day = 1; day <= totalDays; day++) {
+                          const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                          const cellDate = new Date(year, month, day);
+                          
+                          // Find tasks with deadline on this day
+                          const dayTasks = projects.flatMap(p => p.tasks || []).filter(t => {
+                            if (!t.dueDate) return false;
+                            const d = new Date(t.dueDate);
+                            return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+                          });
+
+                          // Find projects ending on this day
+                          const dayProjects = projects.filter(p => {
+                            if (!p.endDate) return false;
+                            const d = new Date(p.endDate);
+                            return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+                          });
+
+                          const isToday = now.getDate() === day && now.getMonth() === month && now.getFullYear() === year;
+
+                          gridCells.push(
+                            <div 
+                              key={`day-${day}`} 
+                              className={`h-24 p-2 border rounded-xs flex flex-col justify-between transition-colors overflow-hidden ${
+                                isToday ? 'border-primary bg-primary/5' : 'border-hairline bg-canvas/40 hover:bg-canvas/60'
+                              }`}
+                            >
+                              <span className={`font-mono text-xs font-bold ${isToday ? 'text-primary' : 'text-mute'}`}>
+                                {day}
+                              </span>
+                              <div className="flex-grow overflow-y-auto space-y-1 mt-1 font-mono text-[9px] select-none">
+                                {dayProjects.map(p => (
+                                  <div key={p.id} className="bg-red-950/60 text-red-300 border border-red-500/20 px-1 py-0.5 rounded-xs truncate font-bold" title={`Project Release: ${p.name}`}>
+                                    🚀 {p.name}
+                                  </div>
+                                ))}
+                                {dayTasks.map(t => (
+                                  <div key={t.id} className="bg-blue-950/60 text-blue-300 border border-blue-500/20 px-1 py-0.5 rounded-xs truncate" title={`Task Due: ${t.title}`}>
+                                    ⚡ {t.title}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Fill cells after the last day of the month to complete grid row (to multiple of 7)
+                        const remaining = 7 - (gridCells.length % 7);
+                        if (remaining < 7) {
+                          for (let i = 0; i < remaining; i++) {
+                            gridCells.push(<div key={`empty-end-${i}`} className="h-24 bg-canvas/10 border border-hairline/20 rounded-xs"></div>);
+                          }
+                        }
+
+                        return gridCells;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 9: WORKSPACE SETTINGS */}
+              {activeTab === 'settings' && (
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left & Middle: Members & Invites */}
+                    <div className="lg:col-span-2 space-y-8">
+                      {/* Invite Team Member Form */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary">Invite Team Member</h3>
+                        <form onSubmit={async (e) => {
+                          e.preventDefault();
+                          setProfileStatusMsg('');
+                          try {
+                            const res = await api.auth.invites.create({ email: newInviteEmail, role: newInviteRole });
+                            setNewInviteEmail('');
+                            setProfileStatusMsg(`Success! Created invite token: ${res.invite.token}`);
+                            // Refresh invite list
+                            const list = await api.auth.invites.list().catch(() => []);
+                            setInvitesList(list);
+                          } catch (err: any) {
+                            setProfileStatusMsg(`Error: ${err.message}`);
+                          }
+                        }} className="space-y-4 text-xs font-mono">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-mute mb-1">Email Address</label>
+                              <input
+                                type="email"
+                                value={newInviteEmail}
+                                onChange={e => setNewInviteEmail(e.target.value)}
+                                placeholder="member@company.com"
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-mute mb-1">Access Role</label>
+                              <select
+                                value={newInviteRole}
+                                onChange={e => setNewInviteRole(e.target.value)}
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                              >
+                                <option value="Employee">Employee</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Client">Client</option>
+                                <option value="Owner">Owner</option>
+                              </select>
+                            </div>
+                          </div>
+                          <button
+                            type="submit"
+                            className="bg-primary text-on-primary text-xs font-semibold px-6 py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
+                          >
+                            Send Workspace Invite
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Team Members List */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-mute">Active Team Members</h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs font-mono text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-hairline text-mute">
+                                <th className="pb-2">Name</th>
+                                <th className="pb-2">Email</th>
+                                <th className="pb-2">Role</th>
+                                <th className="pb-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-hairline/30">
+                              {orgUsersList.map(u => (
+                                <tr key={u.id} className="text-ink">
+                                  <td className="py-3 font-semibold">{u.firstName} {u.lastName || ''}</td>
+                                  <td className="py-3 text-body-text">{u.email}</td>
+                                  <td className="py-3">
+                                    <span className="px-2 py-0.5 bg-canvas border border-hairline rounded-xs text-[9px] uppercase tracking-wider text-mute">
+                                      {u.role}
+                                    </span>
+                                  </td>
+                                  <td className="py-3">
+                                    <span className={`px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase ${u.status === 'Active' ? 'bg-green-950/40 text-green-300' : 'bg-red-950/40 text-red-300'}`}>
+                                      {u.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Pending Invites List */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-mute">Pending Invitations</h3>
+                        {invitesList.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs font-mono text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-hairline text-mute">
+                                  <th className="pb-2">Email</th>
+                                  <th className="pb-2">Role</th>
+                                  <th className="pb-2">Invite Link</th>
+                                  <th className="pb-2">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-hairline/30">
+                                {invitesList.map(inv => (
+                                  <tr key={inv.id} className="text-ink">
+                                    <td className="py-3 font-semibold">{inv.email}</td>
+                                    <td className="py-3 text-mute uppercase text-[10px]">{inv.role}</td>
+                                    <td className="py-3">
+                                      <input
+                                        type="text"
+                                        readOnly
+                                        value={`http://localhost:3000/?auth=register&inviteToken=${inv.token}`}
+                                        className="bg-canvas border border-hairline p-1 rounded text-[10px] text-mute w-48 font-mono select-all focus:outline-none"
+                                        onClick={(e) => (e.target as any).select()}
+                                      />
+                                    </td>
+                                    <td className="py-3">
+                                      <span className={`px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase ${inv.status === 'Pending' ? 'bg-yellow-950/40 text-yellow-300' : 'bg-green-950/40 text-green-300'}`}>
+                                        {inv.status}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-mute italic">No pending invitations found.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: User Profile Settings */}
+                    <div className="space-y-8">
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">User Profile Settings</h3>
+                        {profileStatusMsg && (
+                          <div className="bg-canvas border border-hairline p-3 rounded text-xs mb-4 text-body-strong font-mono">
+                            {profileStatusMsg}
+                          </div>
+                        )}
+                        <form onSubmit={async (e) => {
+                          e.preventDefault();
+                          setProfileStatusMsg('');
+                          try {
+                            const updated = await api.auth.updateProfile({
+                              phone: profilePhone,
+                              bio: profileBio,
+                              timezone: profileTimezone,
+                              notificationPreferences: profileNotificationPref
+                            });
+                            const saved = localStorage.getItem('clientoq_user');
+                            if (saved) {
+                              const parsed = JSON.parse(saved);
+                              const merged = { ...parsed, ...updated };
+                              localStorage.setItem('clientoq_user', JSON.stringify(merged));
+                              setUser(merged);
+                            }
+                            setProfileStatusMsg('Profile updated successfully!');
+                          } catch (err: any) {
+                            setProfileStatusMsg(`Error: ${err.message}`);
+                          }
+                        }} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Phone Number</label>
+                            <input
+                              type="text"
+                              value={profilePhone}
+                              onChange={e => setProfilePhone(e.target.value)}
+                              placeholder="+1 555 0199"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Timezone Location</label>
+                            <select
+                              value={profileTimezone}
+                              onChange={e => setProfileTimezone(e.target.value)}
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            >
+                              <option value="UTC">UTC (GMT+0)</option>
+                              <option value="Asia/Kolkata">Asia/Kolkata (GMT+5:30)</option>
+                              <option value="America/New_York">America/New_York (EST/EDT)</option>
+                              <option value="Europe/London">Europe/London (BST/GMT)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Short Biography Bio</label>
+                            <textarea
+                              rows={3}
+                              value={profileBio}
+                              onChange={e => setProfileBio(e.target.value)}
+                              placeholder="Describe your role or tasks..."
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          
+                          <div className="border-t border-hairline pt-4 space-y-2">
+                            <span className="block text-[10px] uppercase text-mute tracking-wider font-semibold">Notification Subscriptions</span>
+                            <label className="flex items-center gap-2 text-mute cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={profileNotificationPref.email}
+                                onChange={e => setProfileNotificationPref({ ...profileNotificationPref, email: e.target.checked })}
+                                className="rounded border-hairline bg-canvas text-primary"
+                              />
+                              <span>Receive Email Notifications</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-mute cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={profileNotificationPref.inApp}
+                                onChange={e => setProfileNotificationPref({ ...profileNotificationPref, inApp: e.target.checked })}
+                                className="rounded border-hairline bg-canvas text-primary"
+                              />
+                              <span>Receive In-App System Alerts</span>
+                            </label>
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary text-xs font-semibold py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
+                          >
+                            Save Settings Profile
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2897,3 +4368,101 @@ export default function Home() {
     </div>
   );
 }
+
+const SignaturePad = ({ onDraw }: { onDraw: (dataUrl: string) => void }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.strokeStyle = '#f7f5f0'; // Warp off-white stroke color
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+  }, []);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      onDraw(canvas.toDataURL());
+    }
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onDraw('');
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="bg-canvas border border-hairline rounded-sm overflow-hidden relative">
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={120}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          className="w-full h-28 cursor-crosshair bg-canvas-soft"
+        />
+        <button
+          type="button"
+          onClick={clear}
+          className="absolute bottom-2 right-2 text-[9px] font-bold text-mute hover:text-red-400 border border-hairline bg-canvas px-2 py-0.5 rounded-xs uppercase tracking-wider cursor-pointer"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+};
+

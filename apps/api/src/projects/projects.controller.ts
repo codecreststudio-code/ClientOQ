@@ -47,7 +47,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
-  async getProjectDetail(@Request() req: any, @Param('id') id: string) {
+  async getProjectDetail(@Request() req: any, @Param('id') id: string): Promise<any> {
     const orgId = req.user.orgId;
     const project = await this.prisma.project.findFirst({
       where: { id, organizationId: orgId },
@@ -180,7 +180,7 @@ export class ProjectsController {
   }
 
   @Post('tasks/:taskId/comments')
-  async addComment(@Request() req: any, @Param('taskId') taskId: string, @Body() body: any) {
+  async addComment(@Request() req: any, @Param('taskId') taskId: string, @Body() body: any): Promise<any> {
     const orgId = req.user.orgId;
     const { comment } = body;
 

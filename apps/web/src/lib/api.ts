@@ -73,13 +73,29 @@ let localAIChats = [
   }
 ];
 
+let localProposals = [
+  { id: 'prop-1', leadId: 'lead-1', title: 'Apex Corporate Web Portal', content: 'Design, development, and hosting contract.', amount: 120000, status: 'Draft', createdAt: new Date().toISOString(), contract: null }
+];
+
+let localContracts = [
+  { id: 'contract-1', clientId: 'client-1', proposalId: 'prop-1', title: 'Contract for: Apex Corporate Web Portal', fileUrl: null, signed: false, signedAt: null }
+];
+
+let localNotifications = [
+  { id: 'notif-1', title: 'Invoice Paid', message: 'Invoice INV-2026-002 was paid by Acme Corporation.', type: 'Payment', isRead: false, createdAt: new Date().toISOString() },
+  { id: 'notif-2', title: 'Task Assigned', message: 'You have been assigned to design Figma mockups.', type: 'Project', isRead: true, createdAt: new Date(Date.now() - 3600000).toISOString() }
+];
+
 async function apiFetch(path: string, options: RequestInit = {}) {
   const isServer = typeof window === 'undefined';
-  const token = !isServer ? localStorage.getItem('agencyos_jwt') : null;
+  const token = !isServer ? localStorage.getItem('clientoq_jwt') : null;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+  if (options.body && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  } else if (!options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (options.headers) {
     Object.entries(options.headers).forEach(([key, val]) => {
@@ -109,8 +125,8 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     const errBody = await res.json().catch(() => ({ message: 'API error occurred' }));
     if (res.status === 401 && (errBody.message === 'Token verification failed' || errBody.message === 'Missing or invalid auth token')) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('agencyos_jwt');
-        localStorage.removeItem('agencyos_user');
+        localStorage.removeItem('clientoq_jwt');
+        localStorage.removeItem('clientoq_user');
       }
     }
     throw new Error(errBody.message || `HTTP error! status: ${res.status}`);
@@ -121,7 +137,12 @@ async function apiFetch(path: string, options: RequestInit = {}) {
 // Simulated local business rules handling mock requests
 function handleMockFallback(path: string, options: RequestInit) {
   const method = options.method || 'GET';
-  const body = options.body ? JSON.parse(options.body as string) : {};
+  let body: any = {};
+  if (options.body && typeof options.body === 'string') {
+    try {
+      body = JSON.parse(options.body);
+    } catch (e) {}
+  }
 
   // Auth Module
   if (path === '/api/auth/login') {
@@ -133,11 +154,12 @@ function handleMockFallback(path: string, options: RequestInit) {
         email: body.email,
         role: 'Owner',
         organizationId: 'org-codecrest',
-        organizationName: 'CodeCrest Studio'
+        organizationName: 'CodeCrest Studio',
+        isEmailVerified: true
       };
       if (typeof window !== 'undefined') {
-        localStorage.setItem('agencyos_jwt', 'mock-jwt-token-for-dev-session');
-        localStorage.setItem('agencyos_user', JSON.stringify(mockUser));
+        localStorage.setItem('clientoq_jwt', 'mock-jwt-token-for-dev-session');
+        localStorage.setItem('clientoq_user', JSON.stringify(mockUser));
       }
       return { token: 'mock-jwt-token-for-dev-session', user: mockUser };
     }
@@ -152,21 +174,82 @@ function handleMockFallback(path: string, options: RequestInit) {
       email: body.email,
       role: 'Owner',
       organizationId: 'org-new',
-      organizationName: body.orgName
+      organizationName: body.orgName,
+      isEmailVerified: true
     };
     if (typeof window !== 'undefined') {
-      localStorage.setItem('agencyos_jwt', 'mock-jwt-token-for-dev-session');
-      localStorage.setItem('agencyos_user', JSON.stringify(mockUser));
+      localStorage.setItem('clientoq_jwt', 'mock-jwt-token-for-dev-session');
+      localStorage.setItem('clientoq_user', JSON.stringify(mockUser));
     }
     return { token: 'mock-jwt-token-for-dev-session', user: mockUser };
   }
 
   if (path === '/api/auth/me') {
     if (typeof window !== 'undefined') {
-      const u = localStorage.getItem('agencyos_user');
+      const u = localStorage.getItem('clientoq_user');
       if (u) return { user: JSON.parse(u) };
     }
-    return { user: { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner' } };
+    return { user: { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner', isEmailVerified: true } };
+  }
+
+  if (path === '/api/auth/invites/create' && method === 'POST') {
+    const newInvite = {
+      id: 'invite-' + Math.random().toString(36).substr(2, 9),
+      email: body.email,
+      role: body.role,
+      token: 'mock-token-' + Math.random().toString(36).substr(2, 9),
+      status: 'Pending',
+      expiresAt: new Date(Date.now() + 7 * 86400000).toISOString()
+    };
+    console.log(`[MOCK INVITE] Link: http://localhost:3000/?auth=register&inviteToken=${newInvite.token}`);
+    return { invite: { ...newInvite, inviteLink: `http://localhost:3000/?auth=register&inviteToken=${newInvite.token}` } };
+  }
+
+  if (path === '/api/auth/invites/list') {
+    return [];
+  }
+
+  if (path.startsWith('/api/auth/invites/validate/')) {
+    return { email: 'invited@test.com', role: 'Employee', organizationName: 'Mock Organization' };
+  }
+
+  if (path === '/api/auth/invites/accept' && method === 'POST') {
+    const mockUser = {
+      id: 'usr-invited',
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: 'invited@test.com',
+      role: 'Employee',
+      organizationId: 'org-mock',
+      organizationName: 'Mock Organization'
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clientoq_jwt', 'mock-jwt-token-for-dev-session');
+      localStorage.setItem('clientoq_user', JSON.stringify(mockUser));
+    }
+    return { token: 'mock-jwt-token-for-dev-session', user: mockUser };
+  }
+
+  if (path === '/api/auth/users') {
+    return [
+      { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner', status: 'Active' }
+    ];
+  }
+
+  if (path === '/api/auth/profile' && method === 'PUT') {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('clientoq_user') : null;
+    const current = saved ? JSON.parse(saved) : { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner' };
+    const updated = {
+      ...current,
+      phone: body.phone,
+      bio: body.bio,
+      timezone: body.timezone,
+      notificationPreferences: body.notificationPreferences
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clientoq_user', JSON.stringify(updated));
+    }
+    return updated;
   }
 
   // Analytics
@@ -636,8 +719,196 @@ CodeCrest Studio`;
     };
   }
 
-  throw new Error(`Fallback handler not implemented for ${method} ${path}`);
-}
+  if (path.startsWith('/api/search')) {
+    const params = new URLSearchParams(path.split('?')[1] || '');
+    const q = (params.get('q') || '').toLowerCase();
+    
+    if (!q) {
+      return { leads: [], clients: [], projects: [], tasks: [], invoices: [], expenses: [] };
+    }
+
+    const filteredLeads = localLeads.filter(l => 
+      l.firstName.toLowerCase().includes(q) || 
+      l.lastName.toLowerCase().includes(q) || 
+      (l.companyName && l.companyName.toLowerCase().includes(q))
+    );
+
+    const filteredClients = localClients.filter(c => 
+      c.companyName.toLowerCase().includes(q)
+    );
+
+    const filteredProjects = localProjects.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      (p.description && p.description.toLowerCase().includes(q))
+    );
+
+    const filteredTasks: any[] = [];
+    localProjects.forEach(p => {
+      p.tasks.forEach(t => {
+        if (t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q))) {
+          filteredTasks.push({ ...t, project: { name: p.name } });
+        }
+      });
+    });
+
+    const filteredInvoices = localInvoices.filter(i => 
+      i.invoiceNumber.toLowerCase().includes(q)
+    );
+
+    const filteredExpenses = localExpenses.filter(e => 
+      e.category.toLowerCase().includes(q) || 
+      (e.description && e.description.toLowerCase().includes(q))
+    );
+
+    return {
+      leads: filteredLeads,
+      clients: filteredClients,
+      projects: filteredProjects,
+      tasks: filteredTasks,
+      invoices: filteredInvoices,
+      expenses: filteredExpenses
+    };
+  }
+
+    if (path.startsWith('/api/projects/tasks/') && path.endsWith('/time-logs')) {
+      const parts = path.split('/');
+      const taskId = parts[4];
+      
+      localProjects.forEach(p => {
+        const task = p.tasks.find(t => t.id === taskId);
+        if (task) {
+          const durationHours = Math.round(body.duration / 60) || 1;
+          task.actualHours = (task.actualHours || 0) + durationHours;
+        }
+      });
+
+      return { id: 'tl-' + Math.random(), taskId, duration: body.duration, description: body.description, createdAt: new Date().toISOString() };
+    }
+
+    if (path === '/api/notifications') {
+      return localNotifications;
+    }
+
+    if (path.startsWith('/api/notifications/') && path.endsWith('/read')) {
+      const parts = path.split('/');
+      const notifId = parts[3];
+      const notif = localNotifications.find(n => n.id === notifId);
+      if (notif) notif.isRead = true;
+      return notif || { success: true };
+    }
+
+    if (path.startsWith('/api/notifications/') && method === 'DELETE') {
+      const parts = path.split('/');
+      const notifId = parts[3];
+      localNotifications = localNotifications.filter(n => n.id !== notifId);
+      return { success: true };
+    }
+
+    if (path.startsWith('/api/crm/leads/') && path.endsWith('/proposals')) {
+      const parts = path.split('/');
+      const leadId = parts[4];
+      const props = localProposals.filter(p => p.leadId === leadId);
+      props.forEach(p => {
+        const c = localContracts.find(con => con.proposalId === p.id);
+        if (c) (p as any).contract = c;
+      });
+      return props;
+    }
+
+    if (path === '/api/crm/proposals' && method === 'POST') {
+      const newProp = {
+        id: 'prop-' + Math.random(),
+        leadId: body.leadId,
+        title: body.title,
+        content: body.content,
+        amount: parseFloat(body.amount) || 0,
+        status: 'Draft',
+        createdAt: new Date().toISOString(),
+        contract: null
+      };
+      localProposals.push(newProp);
+      return newProp;
+    }
+
+    if (path.startsWith('/api/crm/proposals/') && path.endsWith('/contract')) {
+      const parts = path.split('/');
+      const proposalId = parts[4];
+      const prop = localProposals.find(p => p.id === proposalId);
+      if (prop) {
+        prop.status = 'Accepted';
+      }
+      const newContract = {
+        id: 'contract-' + Math.random(),
+        clientId: body.clientId,
+        proposalId,
+        title: `Contract for: ${prop ? prop.title : 'Proposal'}`,
+        fileUrl: null,
+        signed: false,
+        signedAt: null
+      };
+      localContracts.push(newContract);
+      if (prop) {
+        (prop as any).contract = newContract;
+      }
+      return newContract;
+    }
+
+    if (path.startsWith('/api/crm/clients/') && path.endsWith('/contracts')) {
+      const parts = path.split('/');
+      const clientId = parts[4];
+      return localContracts.filter(c => c.clientId === clientId);
+    }
+
+    if (path === '/api/crm/leads/import-csv' && method === 'POST') {
+      const mockLead = {
+        id: 'lead-csv-' + Math.random(),
+        firstName: 'Alice',
+        lastName: 'Cooper',
+        email: 'alice@cooper.com',
+        phone: '+15550299',
+        companyName: 'Cooper Inc',
+        source: 'CSV Import',
+        status: 'New',
+        estimatedValue: 90000,
+        notes: 'Imported from client spreadsheet log',
+        activities: [{ id: 'a-csv-' + Math.random(), activityType: 'Follow-Up', note: 'Lead imported via CSV file upload.', createdAt: new Date().toISOString() }],
+        updatedAt: new Date().toISOString()
+      };
+      localLeads.push(mockLead);
+      return { success: true, importedCount: 1, message: 'Successfully imported 1 leads.' };
+    }
+
+    if (path.startsWith('/api/projects/') && path.endsWith('/files')) {
+      const parts = path.split('/');
+      const projectId = parts[3];
+      if (method === 'POST') {
+        const mockFile = {
+          id: 'file-' + Math.random(),
+          fileName: 'uploaded_attachment.pdf',
+          fileType: 'application/pdf',
+          fileSize: 102400,
+          createdAt: new Date().toISOString()
+        };
+        // Save in global mock list if necessary
+        return mockFile;
+      }
+      return [];
+    }
+
+    if (path.startsWith('/api/crm/contracts/') && path.endsWith('/sign')) {
+      const parts = path.split('/');
+      const contractId = parts[4];
+      const contract = localContracts.find(c => c.id === contractId);
+      if (contract) {
+        contract.signed = true;
+        contract.signedAt = new Date().toISOString() as any;
+        contract.fileUrl = body.signatureData || 'Signed via consent checkbox';
+      }
+      return contract || { success: true };
+    }
+
+    throw new Error(`Fallback handler not implemented for ${method} ${path}`);
+  }
 
 export const api = {
   // Auth
@@ -645,11 +916,19 @@ export const api = {
     login: (body: any) => apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
     register: (body: any) => apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
     me: () => apiFetch('/api/auth/me'),
+    getUsers: () => apiFetch('/api/auth/users'),
+    updateProfile: (body: any) => apiFetch('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
     logout: () => {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('agencyos_jwt');
-        localStorage.removeItem('agencyos_user');
+        localStorage.removeItem('clientoq_jwt');
+        localStorage.removeItem('clientoq_user');
       }
+    },
+    invites: {
+      create: (body: { email: string; role: string }) => apiFetch('/api/auth/invites/create', { method: 'POST', body: JSON.stringify(body) }),
+      list: () => apiFetch('/api/auth/invites/list'),
+      validate: (token: string) => apiFetch(`/api/auth/invites/validate/${token}`),
+      accept: (body: any) => apiFetch('/api/auth/invites/accept', { method: 'POST', body: JSON.stringify(body) })
     }
   },
 
@@ -663,7 +942,21 @@ export const api = {
     getLeads: () => apiFetch('/api/crm/leads'),
     createLead: (body: any) => apiFetch('/api/crm/leads', { method: 'POST', body: JSON.stringify(body) }),
     updateLead: (id: string, body: any) => apiFetch(`/api/crm/leads/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    addActivity: (leadId: string, body: any) => apiFetch(`/api/crm/leads/${leadId}/activities`, { method: 'POST', body: JSON.stringify(body) })
+    addActivity: (leadId: string, body: any) => apiFetch(`/api/crm/leads/${leadId}/activities`, { method: 'POST', body: JSON.stringify(body) }),
+    importLeadsCsv: (file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return apiFetch('/api/crm/leads/import-csv', { method: 'POST', body: fd });
+    },
+    proposals: {
+      list: (leadId: string) => apiFetch(`/api/crm/leads/${leadId}/proposals`),
+      create: (body: any) => apiFetch('/api/crm/proposals', { method: 'POST', body: JSON.stringify(body) }),
+      createContract: (id: string, body: any) => apiFetch(`/api/crm/proposals/${id}/contract`, { method: 'POST', body: JSON.stringify(body) })
+    },
+    contracts: {
+      list: (clientId: string) => apiFetch(`/api/crm/clients/${clientId}/contracts`),
+      sign: (id: string, body: any) => apiFetch(`/api/crm/contracts/${id}/sign`, { method: 'PUT', body: JSON.stringify(body) })
+    }
   },
 
   // Clients
@@ -684,7 +977,14 @@ export const api = {
     updateTask: (taskId: string, body: any) => apiFetch(`/api/projects/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(body) }),
     addTaskComment: (taskId: string, comment: string) => apiFetch(`/api/projects/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ comment }) }),
     addTaskChecklist: (taskId: string, title: string) => apiFetch(`/api/projects/tasks/${taskId}/checklists`, { method: 'POST', body: JSON.stringify({ title }) }),
-    toggleTaskChecklist: (checklistId: string, completed: boolean) => apiFetch(`/api/projects/tasks/checklists/${checklistId}`, { method: 'PUT', body: JSON.stringify({ completed }) })
+    toggleTaskChecklist: (checklistId: string, completed: boolean) => apiFetch(`/api/projects/tasks/checklists/${checklistId}`, { method: 'PUT', body: JSON.stringify({ completed }) }),
+    addTimeLog: (taskId: string, body: any) => apiFetch(`/api/projects/tasks/${taskId}/time-logs`, { method: 'POST', body: JSON.stringify(body) }),
+    uploadProjectFile: (projectId: string, file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return apiFetch(`/api/projects/${projectId}/files`, { method: 'POST', body: fd });
+    },
+    getProjectFiles: (projectId: string) => apiFetch(`/api/projects/${projectId}/files`)
   },
 
   // Finance
@@ -712,5 +1012,17 @@ export const api = {
   // AI assistant
   ai: {
     chat: (body: any) => apiFetch('/api/ai/chat', { method: 'POST', body: JSON.stringify(body) })
+  },
+
+  // Search
+  search: {
+    query: (q: string) => apiFetch(`/api/search?q=${encodeURIComponent(q)}`)
+  },
+
+  // Notifications
+  notifications: {
+    list: () => apiFetch('/api/notifications'),
+    read: (id: string) => apiFetch(`/api/notifications/${id}/read`, { method: 'PUT' }),
+    delete: (id: string) => apiFetch(`/api/notifications/${id}`, { method: 'DELETE' })
   }
 };

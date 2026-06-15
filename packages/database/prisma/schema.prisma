@@ -34,6 +34,7 @@ model Organization {
   aiConversations     AIConversation[]
   dailyMetrics        DailyMetrics[]
   auditLogs           AuditLog[]
+  userInvites         UserInvite[]
 }
 
 model User {
@@ -49,6 +50,11 @@ model User {
   role           String        @default("Employee") // "SuperAdmin", "Owner", "Manager", "Employee", "Client"
   status         String        @default("Active") // "Active", "Suspended"
   lastLogin      DateTime?
+  bio            String?
+  timezone       String        @default("UTC")
+  notificationPreferences Json   @default("{\"email\":true,\"inApp\":true,\"push\":false}")
+  isEmailVerified Boolean       @default(false)
+  emailVerificationToken String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -59,6 +65,23 @@ model User {
   sessions       UserSession[]
   auditLogs      AuditLog[]
   leadsOwned     Lead[]
+  notifications  Notification[]
+  sentInvites    UserInvite[]   @relation("InviteSender")
+  timeLogs       TimeLog[]
+}
+
+model UserInvite {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  email          String
+  role           String   @default("Employee")
+  token          String   @unique
+  invitedBy      String
+  inviter        User     @relation("InviteSender", fields: [invitedBy], references: [id])
+  status         String   @default("Pending") // "Pending", "Accepted", "Expired", "Cancelled"
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
 }
 
 model UserSession {
@@ -193,6 +216,7 @@ model Task {
 
   comments       TaskComment[]
   checklists     TaskChecklist[]
+  timeLogs       TimeLog[]
 }
 
 model TaskComment {
@@ -337,6 +361,7 @@ model Expense {
 model Notification {
   id        String   @id @default(uuid())
   userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   message   String
   type      String   @default("System") // "Email", "WhatsApp", "System", "Payment", "Project"
@@ -432,4 +457,15 @@ model AuditLog {
   oldValue       String?
   newValue       String?
   createdAt      DateTime     @default(now())
+}
+
+model TimeLog {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  description String?
+  duration    Int      // in minutes
+  createdAt   DateTime @default(now())
 }

@@ -14,7 +14,7 @@ export class WhatsappWebhookController {
     @Query('hub.challenge') challenge: string
   ) {
     this.logger.log(`Received WhatsApp Webhook Handshake verification query...`);
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'agencyos_secret_token_2026';
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'clientoq_secret_token_2026';
     
     if (mode === 'subscribe' && token === verifyToken) {
       this.logger.log(`WhatsApp Webhook verified successfully.`);

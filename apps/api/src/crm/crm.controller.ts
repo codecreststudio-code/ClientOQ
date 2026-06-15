@@ -8,7 +8,7 @@ export class CrmController {
   constructor(private prisma: PrismaService) {}
 
   @Get('leads')
-  async getLeads(@Request() req: any) {
+  async getLeads(@Request() req: any): Promise<any> {
     const orgId = req.user.orgId;
     return this.prisma.lead.findMany({
       where: { organizationId: orgId },

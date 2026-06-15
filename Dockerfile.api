@@ -11,8 +11,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY apps/api/ ./apps/api/
 
-RUN pnpm --filter @agencyos/database exec prisma generate
-RUN pnpm --filter @agencyos/api build
+RUN pnpm --filter @clientoq/database exec prisma generate
+RUN pnpm --filter @clientoq/api build
 
 EXPOSE 3001
-CMD ["pnpm", "--filter", "@agencyos/api", "start"]
+CMD ["pnpm", "--filter", "@clientoq/api", "start"]

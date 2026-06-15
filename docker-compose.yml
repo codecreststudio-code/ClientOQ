@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   api:
@@ -8,11 +8,23 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - DATABASE_URL=file:/app/packages/database/prisma/dev.db
-      - JWT_SECRET=super-secret-key-agencyos-ai-2026-development
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY:-15m}
       - PORT=3001
-    volumes:
-      - sqlite_data:/app/packages/database/prisma
+      - NODE_ENV=production
+      - ALLOWED_ORIGINS=http://web:3000,${ALLOWED_ORIGINS:-http://localhost:3000}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}
+      - MAX_FILE_SIZE_BYTES=${MAX_FILE_SIZE_BYTES:-10485760}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   web:
     build:
@@ -21,9 +33,18 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://api:3001
+      - NODE_ENV=production
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-volumes:
-  sqlite_data:
+networks:
+  default:
+    name: agencyos-network
