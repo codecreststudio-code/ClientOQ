@@ -9,6 +9,8 @@ import { PrismaService } from "./prisma.service";
 import { AuthService } from "./auth/auth.service";
 import { MailService } from "./mail/mail.service";
 import { AuthController } from "./auth/auth.controller";
+import { GoogleAuthController } from "./auth/google-auth.controller";
+import { GoogleAuthService } from "./auth/google-auth.service";
 import { UserInviteController } from "./auth/user-invite.controller";
 import { CrmController } from "./crm/crm.controller";
 import { ClientsController } from "./clients/clients.controller";
@@ -69,6 +71,7 @@ import { HealthController } from "./common/health.controller";
   ],
   controllers: [
     AuthController,
+    GoogleAuthController,
     UserInviteController,
     CrmController,
     ClientsController,
@@ -92,6 +95,7 @@ import { HealthController } from "./common/health.controller";
   providers: [
     PrismaService,
     AuthService,
+    GoogleAuthService,
     MailService,
     {
       provide: APP_GUARD,

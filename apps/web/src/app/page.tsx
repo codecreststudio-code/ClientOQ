@@ -288,6 +288,32 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // Load Google Identity Services script
+  useEffect(() => {
+    const GOOGLE_CLIENT_ID = '671624988330-qpu75rc9e8ju9uuna68q1qtick5nk0bk.apps.googleusercontent.com';
+    if (typeof window === 'undefined') return;
+    if (document.getElementById('google-gsi-script')) return;
+    const script = document.createElement('script');
+    script.id = 'google-gsi-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      (window as any).google?.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleLogin,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+    };
+    document.head.appendChild(script);
+    return () => {
+      const s = document.getElementById('google-gsi-script');
+      if (s) s.remove();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const aiEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -538,6 +564,21 @@ export default function Home() {
   const handleLogout = () => {
     api.auth.logout();
     setUser(null);
+  };
+
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    setAuthError('');
+    try {
+      const res = await api.auth.googleLogin(credentialResponse.credential);
+      if (res.token) {
+        localStorage.setItem('clientoq_jwt', res.token);
+        localStorage.setItem('clientoq_user', JSON.stringify(res.user));
+      }
+      setUser(res.user);
+      setShowAuthModal(false);
+    } catch (err: any) {
+      setAuthError(err.message || 'Google sign-in failed. Please try again.');
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -1695,6 +1736,44 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                   </>
                   )}
                 </div>
+                {/* Google Sign-In divider */}
+                {(authMode === 'login' || authMode === 'register') && (
+                  <div className="mt-4 space-y-3">
+                    <div className="relative flex items-center">
+                      <div className="flex-1 border-t border-hairline"></div>
+                      <span className="px-3 text-[10px] text-mute uppercase tracking-widest font-mono">or continue with</span>
+                      <div className="flex-1 border-t border-hairline"></div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if ((window as any).google?.accounts?.id) {
+                          (window as any).google.accounts.id.prompt();
+                        } else {
+                          // Fallback: render button directly
+                          const container = document.getElementById('google-btn-container');
+                          if (container) {
+                            (window as any).google?.accounts.id.renderButton(container, {
+                              theme: 'outline',
+                              size: 'large',
+                              width: container.offsetWidth,
+                            });
+                          }
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-3 border border-hairline bg-canvas hover:bg-canvas-soft text-ink text-sm font-medium py-3 px-4 rounded-sm transition-all duration-150 group"
+                    >
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                      <span>Sign in with Google</span>
+                    </button>
+                    <div id="google-btn-container" className="w-full"></div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1703,6 +1782,166 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
       ) : (
         
         /* 2. CORE WORKSPACE */
+        user?.role === 'SuperAdmin' ? (
+          /* ── SUPERADMIN PLATFORM DASHBOARD ── */
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* SuperAdmin Top Bar */}
+            <div className="bg-ink border-b border-primary/20 px-8 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded bg-primary flex items-center justify-center font-black text-on-primary text-sm font-mono select-none shadow">⚡</div>
+                <div>
+                  <span className="font-black tracking-tight text-primary uppercase font-mono text-sm">Clientoq</span>
+                  <span className="ml-2 bg-primary/20 text-primary text-[8px] px-2 py-0.5 rounded uppercase tracking-widest font-mono border border-primary/30">SUPERADMIN</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-mute text-xs font-mono">{user?.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-mute hover:text-primary text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 border border-mute/20 hover:border-primary/40 px-3 py-1.5 rounded transition-all"
+                >
+                  <LogOut size={12} /> Logout
+                </button>
+              </div>
+            </div>
+
+            {/* SuperAdmin Content */}
+            <div className="flex-1 overflow-y-auto bg-canvas-soft p-8">
+              <div className="max-w-6xl mx-auto">
+                <div className="mb-8">
+                  <h1 className="text-2xl font-black text-ink font-mono uppercase tracking-tight">Platform Control Center</h1>
+                  <p className="text-mute text-sm mt-1 font-serif italic">Manage all organizations, subscriptions, and platform health from this interface.</p>
+                </div>
+
+                {/* Platform KPIs */}
+                <div className="grid grid-cols-4 gap-4 mb-8">
+                  {[
+                    { label: 'Total Organizations', value: '24', change: '+3 this month', icon: '🏢' },
+                    { label: 'Active Users', value: '187', change: '+12 this week', icon: '👥' },
+                    { label: 'Platform MRR', value: '₹3,84,000', change: '+18% growth', icon: '💰' },
+                    { label: 'Avg. Session Time', value: '42 min', change: 'Per active user', icon: '⏱️' },
+                  ].map((kpi, i) => (
+                    <div key={i} className="bg-canvas border border-hairline rounded-md p-5 hover:border-primary/30 transition-colors">
+                      <div className="text-2xl mb-2">{kpi.icon}</div>
+                      <div className="text-xl font-black text-ink font-mono">{kpi.value}</div>
+                      <div className="text-xs font-semibold text-ink mt-1">{kpi.label}</div>
+                      <div className="text-[10px] text-positive mt-1 font-mono">{kpi.change}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Organizations Table */}
+                <div className="bg-canvas border border-hairline rounded-md overflow-hidden mb-6">
+                  <div className="border-b border-hairline px-6 py-4 flex items-center justify-between">
+                    <h2 className="font-bold text-ink text-sm uppercase tracking-wider font-mono">All Organizations</h2>
+                    <span className="text-mute text-xs font-mono">24 tenants</span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-canvas-soft border-b border-hairline">
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Organization</th>
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Plan</th>
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Users</th>
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">MRR</th>
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Status</th>
+                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
+                        { name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
+                        { name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
+                        { name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
+                        { name: 'SkyLine Consultants', plan: 'Premium', users: 12, mrr: '₹1,999', status: 'Active', joined: '2024-11' },
+                        { name: 'Apex Creative Co.', plan: 'Free', users: 2, mrr: '₹0', status: 'Suspended', joined: '2025-09' },
+                      ].map((org, i) => (
+                        <tr key={i} className="border-b border-hairline/50 hover:bg-canvas-soft/50 transition-colors">
+                          <td className="px-6 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs font-mono">
+                                {org.name[0]}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-ink text-xs">{org.name}</div>
+                                <div className="text-mute text-[10px] font-mono">since {org.joined}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
+                              org.plan === 'Premium' ? 'bg-primary/10 text-ink border border-primary/30' :
+                              org.plan === 'Standard' ? 'bg-canvas-soft text-body-text border border-hairline' :
+                              'bg-canvas-soft text-mute border border-hairline'
+                            }`}>{org.plan}</span>
+                          </td>
+                          <td className="px-6 py-3 text-xs font-mono text-body-text">{org.users}</td>
+                          <td className="px-6 py-3 text-xs font-mono font-semibold text-ink">{org.mrr}</td>
+                          <td className="px-6 py-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
+                              org.status === 'Active' ? 'bg-positive/10 text-positive border border-positive/20' :
+                              org.status === 'Trial' ? 'bg-warning/10 text-warning-content border border-warning/20' :
+                              'bg-negative-bg/20 text-negative border border-negative/20'
+                            }`}>{org.status}</span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <button className="text-primary text-[10px] font-mono uppercase tracking-wider hover:underline border border-primary/20 hover:border-primary/50 px-2 py-1 rounded transition-all">
+                              Impersonate
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Platform Health */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-canvas border border-hairline rounded-md p-5">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Subscription Breakdown</h3>
+                    <div className="space-y-3">
+                      {[{ label: 'Premium', count: 8, color: 'bg-primary' }, { label: 'Standard', count: 11, color: 'bg-positive' }, { label: 'Free / Trial', count: 5, color: 'bg-canvas-soft border border-hairline' }].map((s, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-sm ${s.color}`}></div>
+                          <span className="text-xs text-body-text flex-1">{s.label}</span>
+                          <span className="text-xs font-bold font-mono text-ink">{s.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-canvas border border-hairline rounded-md p-5">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Platform Events (24h)</h3>
+                    <div className="space-y-2">
+                      {[
+                        { event: 'New org registered', count: 2 },
+                        { event: 'Google OAuth logins', count: 34 },
+                        { event: 'Invoices created', count: 18 },
+                        { event: 'API requests', count: '12.4K' },
+                      ].map((e, i) => (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className="text-body-text">{e.event}</span>
+                          <span className="font-bold font-mono text-ink">{e.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-canvas border border-hairline rounded-md p-5">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Logged in as</h3>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-black text-sm">⚡</div>
+                      <div>
+                        <div className="text-xs font-semibold text-ink">{user?.firstName} {user?.lastName}</div>
+                        <div className="text-[10px] text-mute font-mono">{user?.email}</div>
+                        <div className="mt-1 inline-block bg-primary/10 text-primary text-[9px] px-2 py-0.5 rounded font-mono border border-primary/20">SUPERADMIN</div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-mute font-serif italic">You have full platform access. Use the Impersonate button to enter any org workspace.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 flex overflow-hidden">
           
           {/* Sidebar */}
@@ -5343,6 +5582,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
           )}
 
         </div>
+        )
       )}
 
     </div>

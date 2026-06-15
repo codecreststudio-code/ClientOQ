@@ -167,6 +167,26 @@ function handleMockFallback(path: string, options: RequestInit) {
     throw new Error('Invalid credentials');
   }
 
+  if (path === '/api/auth/google') {
+    // Mock Google login — in production this verifies the real Google ID token
+    const isSuperAdmin = body.credential && body.credential.includes('SUPER');
+    const mockUser = {
+      id: isSuperAdmin ? 'usr-superadmin' : 'usr-google',
+      firstName: 'Google',
+      lastName: 'User',
+      email: isSuperAdmin ? 'codecreststudio@gmail.com' : 'google.user@gmail.com',
+      role: isSuperAdmin ? 'SuperAdmin' : 'Owner',
+      organizationId: isSuperAdmin ? null : 'org-google',
+      organizationName: isSuperAdmin ? null : 'Google Agency',
+      isEmailVerified: true
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clientoq_jwt', 'mock-jwt-token-for-dev-session');
+      localStorage.setItem('clientoq_user', JSON.stringify(mockUser));
+    }
+    return { token: 'mock-jwt-token-for-dev-session', user: mockUser };
+  }
+
   if (path === '/api/auth/register') {
     const mockUser = {
       id: 'usr-new',
@@ -936,7 +956,8 @@ export const api = {
       list: () => apiFetch('/api/auth/invites/list'),
       validate: (token: string) => apiFetch(`/api/auth/invites/validate/${token}`),
       accept: (body: any) => apiFetch('/api/auth/invites/accept', { method: 'POST', body: JSON.stringify(body) })
-    }
+    },
+    googleLogin: (credential: string) => apiFetch('/api/auth/google', { method: 'POST', body: JSON.stringify({ credential }) })
   },
 
   // Analytics
