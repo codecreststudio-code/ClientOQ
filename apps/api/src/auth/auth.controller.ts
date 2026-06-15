@@ -11,15 +11,36 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async login(@Body() body: LoginDto, @Request() req: any) {
+  async login(
+    @Body() body: LoginDto,
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response
+  ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    return this.authService.login(body, ip);
+    const result = await this.authService.login(body, ip);
+    res.cookie('clientoq_jwt', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 minutes matching JWT expiry
+    });
+    return result;
   }
 
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  async register(@Body() body: RegisterDto) {
-    return this.authService.register(body);
+  async register(
+    @Body() body: RegisterDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.authService.register(body);
+    res.cookie('clientoq_jwt', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
+    return result;
   }
 
   @Get('verify-email')
@@ -71,8 +92,24 @@ export class AuthController {
 
   @Post('refresh')
   @UseGuards(AuthGuard)
-  async refresh(@Request() req: any) {
+  async refresh(
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response
+  ) {
     const { id, orgId, role, email } = req.user;
-    return this.authService.refreshToken(id, orgId, role, email);
+    const result = await this.authService.refreshToken(id, orgId, role, email);
+    res.cookie('clientoq_jwt', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
+    return result;
+  }
+
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('clientoq_jwt');
+    return { success: true };
   }
 }

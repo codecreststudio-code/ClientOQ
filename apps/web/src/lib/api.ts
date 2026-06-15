@@ -7,7 +7,7 @@ let localLeads = [
 ];
 
 let localClients = [
-  { id: 'client-1', companyName: 'Acme Corporation', website: 'https://acme.com', email: 'billing@acme.com', phone: '+15551234', address: '123 Industrial Way', city: 'Metropolis', state: 'NY', country: 'USA', gstNumber: 'US123456789A', notes: 'Long-term client. Prefers Net-30 payment terms.', contacts: [{ id: 'c-1', name: 'John Doe', designation: 'VP of Product', email: 'john@acme.com', phone: '+15551235' }] }
+  { id: 'client-1', companyName: 'Acme Corporation', website: 'https://acme.com', email: 'billing@acme.com', phone: '+15551234', address: '123 Industrial Way', city: 'Metropolis', state: 'NY', country: 'USA', gstNumber: 'US123456789A', notes: 'Long-term client. Prefers Net-30 payment terms.', timezone: 'America/New_York', contacts: [{ id: 'c-1', name: 'John Doe', designation: 'VP of Product', email: 'john@acme.com', phone: '+15551235' }] }
 ];
 
 let localProjects = [
@@ -108,6 +108,7 @@ async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   const mergedOptions = {
+    credentials: 'include' as const,
     ...options,
     headers
   };
@@ -362,6 +363,7 @@ function handleMockFallback(path: string, options: RequestInit) {
         country: body.country,
         gstNumber: body.gstNumber,
         notes: body.notes,
+        timezone: body.timezone || 'UTC',
         contacts: body.contacts || []
       };
       localClients.push(newClient);
@@ -918,7 +920,12 @@ export const api = {
     me: () => apiFetch('/api/auth/me'),
     getUsers: () => apiFetch('/api/auth/users'),
     updateProfile: (body: any) => apiFetch('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
-    logout: () => {
+    logout: async () => {
+      try {
+        await apiFetch('/api/auth/logout', { method: 'POST' });
+      } catch (err) {
+        console.warn('Server logout failed or API offline:', err);
+      }
       if (typeof window !== 'undefined') {
         localStorage.removeItem('clientoq_jwt');
         localStorage.removeItem('clientoq_user');

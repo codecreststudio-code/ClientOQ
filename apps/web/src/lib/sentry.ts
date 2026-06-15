@@ -11,7 +11,8 @@ export function initializeSentryErrorHandling() {
 
     // Handle uncaught exceptions
     window.onerror = (message, source, lineno, colno, error) => {
-      Sentry.captureException(error || new Error(message));
+      const msgString = typeof message === 'string' ? message : (message && (message as any).message) || String(message);
+      Sentry.captureException(error || new Error(msgString));
       console.error('Uncaught exception:', { message, source, lineno, colno, error });
       return false; // Let browser handle it normally
     };

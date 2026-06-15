@@ -8,6 +8,48 @@ import { AuthGuard } from '../auth/auth.guard';
 export class ImportController {
   constructor(private prisma: PrismaService) {}
 
+  private parseCSV(text: string): string[][] {
+    const result: string[][] = [];
+    let row: string[] = [];
+    let currentVal = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          currentVal += '"';
+          i++; // Skip the next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        row.push(currentVal);
+        currentVal = "";
+      } else if ((char === '\r' || char === '\n') && !inQuotes) {
+        if (char === '\r' && nextChar === '\n') {
+          i++; // Skip the \n
+        }
+        row.push(currentVal);
+        result.push(row);
+        row = [];
+        currentVal = "";
+      } else {
+        currentVal += char;
+      }
+    }
+    
+    // Add any remaining data
+    if (row.length > 0 || currentVal !== "") {
+      row.push(currentVal);
+      result.push(row);
+    }
+    
+    return result;
+  }
+
   @Post('leads/import-csv')
   @UseInterceptors(FileInterceptor('file'))
   async importLeadsCsv(
@@ -32,21 +74,20 @@ export class ImportController {
     }
 
     const csvText = file.buffer.toString('utf-8');
-    const lines = csvText.split(/\r?\n/);
-    if (lines.length <= 1) {
+    const parsedRows = this.parseCSV(csvText);
+    if (parsedRows.length <= 1) {
       return { count: 0, message: 'CSV has no data rows' };
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+    const headers = parsedRows[0].map(h => h.trim().replace(/^["']|["']$/g, ''));
     let importedCount = 0;
 
     // Security: cap rows to prevent memory exhaustion
     const MAX_ROWS = 10000;
-    for (let i = 1; i < Math.min(lines.length, MAX_ROWS + 1); i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    for (let i = 1; i < Math.min(parsedRows.length, MAX_ROWS + 1); i++) {
+      const values = parsedRows[i].map(v => v.trim().replace(/^["']|["']$/g, ''));
+      if (values.length === 0 || values.every(v => v === '')) continue;
 
-      const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
       const row: Record<string, string> = {};
       headers.forEach((h, index) => {
         row[h] = values[index] || '';

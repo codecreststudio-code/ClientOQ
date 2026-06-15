@@ -20,7 +20,7 @@ export class ClientsController {
   @Post()
   async createClient(@Request() req: any, @Body() body: any) {
     const orgId = req.user.orgId;
-    const { companyName, website, email, phone, address, city, state, country, gstNumber, notes, contacts } = body;
+    const { companyName, website, email, phone, address, city, state, country, gstNumber, notes, timezone, contacts } = body;
 
     const client = await this.prisma.client.create({
       data: {
@@ -34,7 +34,8 @@ export class ClientsController {
         state,
         country,
         gstNumber,
-        notes
+        notes,
+        timezone: timezone || 'UTC'
       }
     });
 

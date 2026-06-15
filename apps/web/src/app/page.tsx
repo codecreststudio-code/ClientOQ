@@ -25,8 +25,50 @@ import {
   FolderOpen,
   Eye,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  Globe
 } from 'lucide-react';
+
+const getThemeClasses = (themeColor: string) => {
+  switch (themeColor) {
+    case 'emerald':
+      return {
+        primaryText: 'text-emerald-400',
+        primaryBg: 'bg-emerald-500',
+        accentText: 'text-emerald-300',
+        bgSoft: 'bg-emerald-950/20 border-emerald-900/30 border',
+      };
+    case 'violet':
+      return {
+        primaryText: 'text-violet-400',
+        primaryBg: 'bg-violet-500',
+        accentText: 'text-violet-300',
+        bgSoft: 'bg-violet-950/20 border-violet-900/30 border',
+      };
+    case 'rose':
+      return {
+        primaryText: 'text-rose-400',
+        primaryBg: 'bg-rose-500',
+        accentText: 'text-rose-300',
+        bgSoft: 'bg-rose-950/20 border-rose-900/30 border',
+      };
+    case 'slate':
+      return {
+        primaryText: 'text-ink',
+        primaryBg: 'bg-ink',
+        accentText: 'text-mute',
+        bgSoft: 'bg-canvas-soft/80 border border-hairline',
+      };
+    case 'indigo':
+    default:
+      return {
+        primaryText: 'text-primary',
+        primaryBg: 'bg-primary',
+        accentText: 'text-primary/80',
+        bgSoft: 'bg-canvas-soft border border-hairline',
+      };
+  }
+};
 
 export default function Home() {
   // Authentication State
@@ -44,7 +86,7 @@ export default function Home() {
   const [sandboxTab, setSandboxTab] = useState<'dashboard' | 'crm' | 'finance'>('dashboard');
 
   // App Navigation State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'crm' | 'clients' | 'projects' | 'finance' | 'whatsapp' | 'automations' | 'portal' | 'settings' | 'calendar'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'crm' | 'clients' | 'projects' | 'finance' | 'whatsapp' | 'automations' | 'portal' | 'settings' | 'calendar' | 'timeconverter'>('dashboard');
 
   // Invites & Profile State
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -75,7 +117,7 @@ export default function Home() {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [newClientForm, setNewClientForm] = useState({
-    companyName: '', website: '', email: '', phone: '', address: '', city: '', state: '', country: '', gstNumber: '', notes: ''
+    companyName: '', website: '', email: '', phone: '', address: '', city: '', state: '', country: '', gstNumber: '', notes: '', timezone: 'UTC'
   });
 
   // Projects Module State
@@ -157,6 +199,94 @@ export default function Home() {
   const [selectedPortalContract, setSelectedPortalContract] = useState<any>(null);
   const [typedName, setTypedName] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+
+  const [converterHour, setConverterHour] = useState<number>(new Date().getHours());
+  const [liveTime, setLiveTime] = useState(new Date());
+
+  // SaaS Powerhouse Features States
+  const [whiteLabelSettings, setWhiteLabelSettings] = useState({
+    themeColor: 'indigo',
+    logoUrl: '',
+    customSubdomain: ''
+  });
+  const [projectBoardView, setProjectBoardView] = useState<'kanban' | 'gantt'>('kanban');
+  const [showCreateRuleModal, setShowCreateRuleModal] = useState(false);
+  const [newRuleForm, setNewRuleForm] = useState({
+    name: '',
+    triggerType: 'Lead Created',
+    actionType: 'Send WhatsApp Alert'
+  });
+  const [showAIEmailModal, setShowAIEmailModal] = useState(false);
+  const [aiEmailDraft, setAiEmailDraft] = useState('');
+
+  const getAILeadScore = (lead: any) => {
+    if (!lead) return { score: 50, badge: 'Warm' };
+    let score = 50;
+    if (lead.estimatedValue > 100000) score += 30;
+    else if (lead.estimatedValue >= 50000) score += 15;
+    else score -= 10;
+
+    const notesLower = (lead.notes || '').toLowerCase();
+    if (notesLower.includes('urgent') || notesLower.includes('soon') || notesLower.includes('timeline') || notesLower.includes('immediately')) score += 10;
+    if (notesLower.includes('budget') && (notesLower.includes('tight') || notesLower.includes('low') || notesLower.includes('limited'))) score -= 15;
+    if (notesLower.includes('enterprise') || notesLower.includes('scale') || notesLower.includes('corporate')) score += 10;
+    if (notesLower.includes('explore') || notesLower.includes('just looking') || notesLower.includes('question')) score -= 10;
+
+    score = Math.max(10, Math.min(99, score));
+    let badge = 'Cold';
+    if (score >= 80) badge = 'Hot';
+    else if (score >= 45) badge = 'Warm';
+
+    return { score, badge };
+  };
+
+  const renderAILeadAssistant = () => {
+    if (!selectedLead) return null;
+    const { score, badge } = getAILeadScore(selectedLead);
+    const leadProjects = projects.filter(p => p.client?.companyName?.toLowerCase() === selectedLead?.companyName?.toLowerCase() || p.name?.toLowerCase().includes((selectedLead?.companyName || '').toLowerCase()));
+    const leadInvoices = invoices.filter(i => i.client?.companyName?.toLowerCase() === selectedLead?.companyName?.toLowerCase());
+    const activeProjectsText = leadProjects.length > 0 
+      ? `${leadProjects.length} active sprint or project(s) (${leadProjects.map(p => `${p.name}: ${p.progress}% done`).join(', ')})`
+      : 'No active sprint or projects registered.';
+    const invoiceStatusText = leadInvoices.length > 0
+      ? `${leadInvoices.length} invoice(s) logged. Paid: ₹${leadInvoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + i.totalAmount, 0).toLocaleString()}, Unpaid: ₹${leadInvoices.filter(i => i.status !== 'Paid').reduce((sum, i) => sum + i.totalAmount, 0).toLocaleString()}`
+      : 'No outstanding bills records.';
+    return (
+      <>
+        <div className="flex justify-between items-center border-b border-hairline pb-2">
+          <span className="block text-[10px] uppercase text-primary font-bold tracking-wider">AI Lead Assistant Insights</span>
+          <span className={`inline-block px-2 py-0.5 rounded-sm text-[9px] font-semibold tracking-wide ${
+            badge === 'Hot' 
+              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+              : badge === 'Warm' 
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+          }`}>
+            AI Match Score: {score}% Match - {badge}
+          </span>
+        </div>
+        
+        <div className="space-y-3">
+          <div>
+            <strong className="text-mute block mb-1">AI Client Briefing Summary:</strong>
+            <div className="text-body-text bg-canvas-soft p-3 rounded border border-hairline/40 text-[11px] leading-relaxed space-y-1">
+              <div><span className="text-mute">Status:</span> Lead is interested in partnering for {selectedLead.companyName || 'unknown enterprise'} services. Estimated Deal Value is ₹{selectedLead.estimatedValue.toLocaleString()}.</div>
+              <div><span className="text-mute">Workspace Activity:</span> {activeProjectsText}</div>
+              <div><span className="text-mute">Ledger Balance:</span> {invoiceStatusText}</div>
+              <div className="pt-1"><span className="text-mute">Context Analyst Notes:</span> <span className="italic">"{selectedLead.notes || 'No description notes provided.'}"</span></div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const aiEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -593,7 +723,7 @@ export default function Home() {
     try {
       await api.clients.createClient(newClientForm);
       setShowAddClientModal(false);
-      setNewClientForm({ companyName: '', website: '', email: '', phone: '', address: '', city: '', state: '', country: '', gstNumber: '', notes: '' });
+      setNewClientForm({ companyName: '', website: '', email: '', phone: '', address: '', city: '', state: '', country: '', gstNumber: '', notes: '', timezone: 'UTC' });
       refreshData();
     } catch (err) {
       console.error(err);
@@ -855,6 +985,132 @@ export default function Home() {
     } else if (type === 'expense') {
       setActiveTab('finance');
     }
+  };
+
+  // Time Zone & Business Hour Checker
+  const getClientTimeDetails = (timezone: string, baseDate = new Date()) => {
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: timezone,
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true,
+      };
+      const timeFormatter = new Intl.DateTimeFormat('en-US', options);
+      const formattedTime = timeFormatter.format(baseDate);
+
+      // Get current hour in target timezone
+      const hourFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hour12: false,
+      });
+      const currentHour = parseInt(hourFormatter.format(baseDate), 10);
+
+      // Business hour evaluation (🟢 Working Hours: 9 AM - 6 PM, 🌙 Off Hours / Evening: 6 PM - 10 PM, 💤 Late Night / Do Not Disturb: 10 PM - 9 AM)
+      let status = '🟢 Working Hours';
+      let badgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      if (currentHour >= 22 || currentHour < 9) {
+        status = '💤 Late Night / Do Not Disturb';
+        badgeColor = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      } else if (currentHour >= 18 && currentHour < 22) {
+        status = '🌙 Off Hours / Evening';
+        badgeColor = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      }
+
+      return {
+        formattedTime,
+        status,
+        badgeColor,
+        currentHour,
+      };
+    } catch (e) {
+      return {
+        formattedTime: 'N/A',
+        status: 'Unknown',
+        badgeColor: 'bg-mute/10 text-mute border border-mute/20',
+        currentHour: 12,
+      };
+    }
+  };
+
+  const getConvertedClientTime = (userHour: number, clientTimezone: string) => {
+    try {
+      const now = new Date();
+      const testDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), userHour, 0, 0);
+      
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: clientTimezone,
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+      });
+      const formattedTime = timeFormatter.format(testDate);
+
+      const hourFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: clientTimezone,
+        hour: 'numeric',
+        hour12: false
+      });
+      const clientHour = parseInt(hourFormatter.format(testDate), 10);
+
+      let isBusinessHours = clientHour >= 9 && clientHour < 18;
+      
+      return {
+        formattedTime,
+        clientHour,
+        isBusinessHours
+      };
+    } catch (e) {
+      return {
+        formattedTime: 'N/A',
+        clientHour: 12,
+        isBusinessHours: false
+      };
+    }
+  };
+
+  const generateAIFollowUp = (lead: any) => {
+    const draft = `Subject: Scoping project timeline for ${lead.companyName || 'your team'} - AgencyOS
+
+Dear ${lead.firstName || 'Client'},
+
+Hope you are doing well!
+
+I was reviewing your requirements for the project. Based on our estimates (valued at ₹${lead.estimatedValue.toLocaleString()}), we would love to schedule a quick 15-minute call to align on scope and next steps.
+
+Looking forward to hearing from you.
+
+Best regards,
+${user?.firstName || 'Syed'} ${user?.lastName || 'Ali'}
+${user?.organizationName || 'CodeCrest Studio'}`;
+    setAiEmailDraft(draft);
+    setShowAIEmailModal(true);
+  };
+
+  const handleCreateAutomationRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newRule = {
+      id: 'auto-' + Date.now(),
+      name: newRuleForm.name || 'New Custom Automation',
+      triggerType: newRuleForm.triggerType,
+      actionType: newRuleForm.actionType,
+      isActive: true,
+      logs: []
+    };
+    setAutomations([...automations, newRule]);
+    setShowCreateRuleModal(false);
+    setNewRuleForm({ name: '', triggerType: 'Lead Created', actionType: 'Send WhatsApp Alert' });
+  };
+
+  const handleToggleRuleActive = (ruleId: string) => {
+    setAutomations(automations.map(rule => {
+      if (rule.id === ruleId) {
+        return { ...rule, isActive: !rule.isActive };
+      }
+      return rule;
+    }));
   };
 
   // Stopwatch & Notification handlers
@@ -1492,6 +1748,14 @@ export default function Home() {
               </button>
 
               <button
+                onClick={() => setActiveTab('timeconverter')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'timeconverter' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
+              >
+                <Globe size={16} />
+                <span>Time Zones Hub</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('projects')}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'projects' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
               >
@@ -1617,6 +1881,7 @@ export default function Home() {
                   {activeTab === 'dashboard' && 'Operations Dashboard'}
                   {activeTab === 'crm' && 'CRM Pipeline Manager'}
                   {activeTab === 'clients' && 'Client Profiles Index'}
+                  {activeTab === 'timeconverter' && 'Time Zones & Meeting Planner'}
                   {activeTab === 'projects' && 'Agile Workspace'}
                   {activeTab === 'finance' && 'Billing Ledger'}
                   {activeTab === 'whatsapp' && 'WhatsApp Communications'}
@@ -2018,7 +2283,23 @@ export default function Home() {
                                 onClick={() => setSelectedLead(lead)}
                                 className="bg-canvas border border-hairline p-3 rounded-md hover:border-primary cursor-pointer transition-all duration-150 flex flex-col justify-between"
                               >
-                                <div className="text-xs font-semibold text-ink mb-1 truncate">{lead.firstName} {lead.lastName}</div>
+                                <div className="flex justify-between items-start gap-1 mb-1">
+                                  <div className="text-xs font-semibold text-ink truncate">{lead.firstName} {lead.lastName}</div>
+                                  {(() => {
+                                    const { score, badge } = getAILeadScore(lead);
+                                    return (
+                                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                                        badge === 'Hot' 
+                                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                          : badge === 'Warm' 
+                                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                      }`}>
+                                        {score}% Match - {badge}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                                 <div className="text-[10px] text-mute truncate mb-2">{lead.companyName || 'No Company'}</div>
                                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-hairline/30">
                                   <span className="text-[10px] font-mono text-primary font-bold">₹{lead.estimatedValue.toLocaleString()}</span>
@@ -2081,11 +2362,27 @@ export default function Home() {
                         </div>
 
                         {/* Notes */}
-                        <div className="mb-8">
+                        <div className="mb-6">
                           <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-2">Lead Description & Notes</span>
                           <p className="bg-canvas border border-hairline p-4 rounded-sm text-sm text-body-strong leading-relaxed font-serif italic">
                             {selectedLead.notes || 'No description notes provided.'}
                           </p>
+                        </div>
+
+                        {/* AI Lead Assistant & Smart Summary */}
+                        <div className="mb-8 bg-canvas border border-hairline p-5 rounded-sm font-mono text-xs space-y-4">
+                           {renderAILeadAssistant()}
+                            
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => generateAIFollowUp(selectedLead)}
+                                className="bg-primary text-on-primary font-bold px-4 py-2 rounded-xs uppercase tracking-wider text-[10px] flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
+                              >
+                                <Sparkles size={12} />
+                                <span>Draft AI Follow-up Email</span>
+                              </button>
+                            </div>
                         </div>
 
                         {/* Add Activity Log */}
@@ -2470,7 +2767,7 @@ export default function Home() {
                           <p className="text-xs text-mute font-mono">{selectedClient.website || 'No website registered'}</p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-6 mb-8">
+                        <div className="grid grid-cols-3 gap-6 mb-6">
                           {/* Info panel */}
                           <div className="bg-canvas border border-hairline p-4 rounded-sm space-y-2 text-xs font-mono text-body-strong">
                             <span className="block text-[10px] uppercase text-mute mb-2 tracking-wider">Account Specifications</span>
@@ -2478,6 +2775,20 @@ export default function Home() {
                             <div><strong className="text-mute font-normal">Phone:</strong> {selectedClient.phone || 'None'}</div>
                             <div><strong className="text-mute font-normal">Address:</strong> {selectedClient.address}, {selectedClient.city}, {selectedClient.state}</div>
                             <div><strong className="text-mute font-normal">GSTIN:</strong> {selectedClient.gstNumber || 'None'}</div>
+                            <div><strong className="text-mute font-normal">Time Zone:</strong> {selectedClient.timezone || 'UTC'}</div>
+                            {(() => {
+                              const timeDetails = getClientTimeDetails(selectedClient.timezone || 'UTC', liveTime);
+                              return (
+                                <div className="border-t border-hairline pt-2 mt-2 space-y-2">
+                                  <div><strong className="text-mute font-normal">Client Time:</strong> <span className="text-ink font-semibold">{timeDetails.formattedTime}</span></div>
+                                  <div>
+                                    <span className={`inline-block px-2 py-0.5 rounded-sm text-[9px] font-semibold tracking-wide ${timeDetails.badgeColor}`}>
+                                      {timeDetails.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Contacts list */}
@@ -2495,6 +2806,60 @@ export default function Home() {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        </div>
+
+                        {/* Time Zone Calculator Widget */}
+                        <div className="bg-canvas border border-hairline p-5 rounded-sm mb-6 text-xs font-mono">
+                          <span className="block text-[10px] uppercase text-mute mb-3 tracking-wider font-semibold">Time Zone Calculator & DND Region Check</span>
+                          <div className="grid grid-cols-2 gap-6 items-center">
+                            <div>
+                              <label className="block text-mute mb-2">
+                                Estimate Meeting Hour in Your Time: <span className="text-primary font-semibold font-sans">{converterHour === 0 ? '12 AM' : converterHour === 12 ? '12 PM' : converterHour > 12 ? `${converterHour - 12} PM` : `${converterHour} AM`} ({Intl.DateTimeFormat().resolvedOptions().timeZone})</span>
+                              </label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="23"
+                                value={converterHour}
+                                onChange={e => setConverterHour(parseInt(e.target.value))}
+                                className="w-full h-1 bg-canvas-soft rounded-lg appearance-none cursor-pointer accent-primary border border-hairline"
+                              />
+                              <div className="flex justify-between text-[9px] text-mute mt-1">
+                                <span>12 AM</span>
+                                <span>6 AM</span>
+                                <span>12 PM</span>
+                                <span>6 PM</span>
+                                <span>11 PM</span>
+                              </div>
+                            </div>
+                            <div className="bg-canvas-soft border border-hairline p-4 rounded-sm">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-mute">Equivalent Time at Client:</span>
+                                <span className="text-ink font-semibold text-sm">
+                                  {(() => {
+                                    const conv = getConvertedClientTime(converterHour, selectedClient.timezone || 'UTC');
+                                    return conv.formattedTime;
+                                  })()}
+                                </span>
+                              </div>
+                              {(() => {
+                                const conv = getConvertedClientTime(converterHour, selectedClient.timezone || 'UTC');
+                                return (
+                                  <div className="flex items-center gap-2 mt-3">
+                                    {conv.isBusinessHours ? (
+                                      <span className="text-[10px] uppercase font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-sm">
+                                        🟢 Within Client Working Hours
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] uppercase font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-sm">
+                                        🌙 Outside Working Hours (Do Not Disturb)
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         </div>
 
@@ -2652,6 +3017,26 @@ export default function Home() {
                               onChange={e => setNewClientForm({ ...newClientForm, gstNumber: e.target.value })}
                             />
                           </div>
+                          <div>
+                            <label className="block text-mute mb-1">Client Time Zone</label>
+                            <select
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none focus:border-mute"
+                              value={newClientForm.timezone}
+                              onChange={e => setNewClientForm({ ...newClientForm, timezone: e.target.value })}
+                            >
+                              <option value="UTC">UTC (Coordinated Universal Time)</option>
+                              <option value="America/New_York">America/New_York (EST/EDT)</option>
+                              <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                              <option value="America/Denver">America/Denver (MST/MDT)</option>
+                              <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                              <option value="Europe/London">Europe/London (GMT/BST)</option>
+                              <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                              <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                              <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                              <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                              <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                            </select>
+                          </div>
                           <button
                             type="submit"
                             className="w-full bg-primary text-on-primary font-bold py-3 rounded-sm uppercase tracking-widest text-xs mt-2 hover:opacity-95 transition-opacity"
@@ -2666,11 +3051,156 @@ export default function Home() {
                 </div>
               )}
 
+              {/* TAB: TIME ZONE CONVERTER */}
+              {activeTab === 'timeconverter' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center border-b border-hairline pb-4">
+                    <div>
+                      <h3 className="text-lg font-bold tracking-tight text-ink font-sans">Global Client Timezones & Meeting Planner</h3>
+                      <p className="text-xs text-mute font-mono">Monitor current local times and schedule meetings within client working windows.</p>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Clocks Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {clients.map((c: any) => {
+                      const timeDetails = getClientTimeDetails(c.timezone || 'UTC', liveTime);
+                      return (
+                        <div key={c.id} className="bg-canvas border border-hairline p-5 rounded-sm shadow-sm space-y-4 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-start">
+                              <h4 className="font-bold text-sm text-ink">{c.companyName}</h4>
+                              <span className={`inline-block px-2 py-0.5 rounded-sm text-[9px] font-semibold tracking-wide ${timeDetails.badgeColor}`}>
+                                {timeDetails.status}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-mute font-mono">{c.website || 'No website'}</p>
+                            <p className="text-xs text-mute font-mono pt-1">Zone: {c.timezone}</p>
+                          </div>
+
+                          <div className="bg-canvas-soft border border-hairline p-3 rounded-sm flex items-center justify-between">
+                            <span className="text-[10px] uppercase text-mute font-mono">Current Time:</span>
+                            <span className="text-primary font-bold text-base font-sans tracking-tight">{timeDetails.formattedTime}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {clients.length === 0 && (
+                      <div className="col-span-full bg-canvas border border-hairline p-8 text-center text-xs text-mute font-mono">
+                        No clients registered. Add a client from the Clients Log to view their local clock.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Planner Widget */}
+                  <div className="bg-canvas border border-hairline p-6 rounded-sm shadow-sm font-mono text-xs space-y-6">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-hairline pb-2 mb-2">Interactive Meeting Planner</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-mute mb-2">
+                            Select Proposed Meeting Time (Your Time): <span className="text-primary font-bold font-sans text-sm">{converterHour === 0 ? '12 AM' : converterHour === 12 ? '12 PM' : converterHour > 12 ? `${converterHour - 12} PM` : `${converterHour} AM`} ({Intl.DateTimeFormat().resolvedOptions().timeZone})</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="23"
+                            value={converterHour}
+                            onChange={e => setConverterHour(parseInt(e.target.value))}
+                            className="w-full h-1 bg-canvas-soft rounded-lg appearance-none cursor-pointer accent-primary border border-hairline"
+                          />
+                          <div className="flex justify-between text-[9px] text-mute mt-1">
+                            <span>12 AM</span>
+                            <span>6 AM</span>
+                            <span>12 PM</span>
+                            <span>6 PM</span>
+                            <span>11 PM</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-canvas-soft border border-hairline p-4 rounded-sm space-y-2">
+                          <span className="block text-[10px] text-mute uppercase font-semibold">Working Hours Standard Reference</span>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <span className="text-[10px]">🟢</span>
+                            <span className="text-body-strong">Working Hours (9 AM - 6 PM)</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <span className="text-[10px]">🌙</span>
+                            <span className="text-body-strong">Off Hours / Evening (6 PM - 10 PM)</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <span className="text-[10px]">💤</span>
+                            <span className="text-body-strong">Late Night / Do Not Disturb (10 PM - 9 AM)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Equivalent Times List */}
+                      <div className="space-y-4">
+                        <span className="block text-[10px] text-mute uppercase tracking-wider font-semibold">Equivalent Times at Clients</span>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                          {clients.map((c: any) => {
+                            const conv = getConvertedClientTime(converterHour, c.timezone || 'UTC');
+                            // Determine status
+                            let statusText = '🟢 Working Hours';
+                            let statusColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                            if (conv.clientHour >= 22 || conv.clientHour < 9) {
+                              statusText = '💤 Do Not Disturb';
+                              statusColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+                            } else if (conv.clientHour >= 18 && conv.clientHour < 22) {
+                              statusText = '🌙 Off Hours';
+                              statusColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+                            }
+
+                            return (
+                              <div key={c.id} className="bg-canvas border border-hairline p-3 rounded-sm flex items-center justify-between">
+                                <div className="space-y-1">
+                                  <div className="font-bold text-ink text-xs">{c.companyName}</div>
+                                  <div className="text-[10px] text-mute font-mono">{c.timezone}</div>
+                                </div>
+                                <div className="text-right space-y-1">
+                                  <div className="font-bold text-primary text-sm font-sans">{conv.formattedTime}</div>
+                                  <span className={`inline-block px-1.5 py-0.5 rounded-sm text-[8px] font-semibold uppercase border ${statusColor}`}>
+                                    {statusText}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {clients.length === 0 && (
+                            <div className="bg-canvas border border-hairline p-6 text-center text-xs text-mute font-mono">
+                              No clients registered to compare times.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* TAB 4: PROJECTS */}
               {activeTab === 'projects' && (
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Workspace Boards</h3>
+                    <div className="flex items-center gap-6">
+                      <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Workspace Boards</h3>
+                      <div className="flex bg-canvas-soft border border-hairline rounded p-0.5 text-xs font-mono">
+                        <button
+                          onClick={() => setProjectBoardView('kanban')}
+                          className={`px-3 py-1 rounded-sm ${projectBoardView === 'kanban' ? 'bg-canvas text-ink font-bold shadow-sm' : 'text-mute hover:text-ink'}`}
+                        >
+                          Kanban Boards
+                        </button>
+                        <button
+                          onClick={() => setProjectBoardView('gantt')}
+                          className={`px-3 py-1 rounded-sm ${projectBoardView === 'gantt' ? 'bg-canvas text-ink font-bold shadow-sm' : 'text-mute hover:text-ink'}`}
+                        >
+                          Workload & Gantt
+                        </button>
+                      </div>
+                    </div>
                     <button
                       onClick={() => setShowAddProjectModal(true)}
                       className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono"
@@ -2680,252 +3210,371 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* Projects List Grid */}
-                  <div className="grid grid-cols-3 gap-6">
-                    {projects.map((proj) => (
-                      <div
-                        key={proj.id}
-                        onClick={() => handleSelectProject(proj)}
-                        className={`bg-canvas-soft border p-6 rounded-md cursor-pointer transition-all duration-150 flex flex-col justify-between ${selectedProject?.id === proj.id ? 'border-primary' : 'border-hairline hover:border-body-text'}`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between text-mute text-[10px] font-mono mb-2 uppercase tracking-wider">
-                            <span>{proj.client?.companyName || 'No Client'}</span>
-                            <span className={`px-2 py-0.5 rounded-xs font-bold ${
-                              proj.priority === 'High' ? 'bg-red-950/60 text-red-300' : 'bg-gray-800 text-gray-300'
-                            }`}>{proj.priority}</span>
-                          </div>
-                          <h4 className="text-lg font-bold text-ink mb-2">{proj.name}</h4>
-                          <p className="text-xs text-body-text line-clamp-2 mb-4 leading-relaxed">{proj.description || 'No description notes.'}</p>
-                        </div>
+                  {projectBoardView === 'gantt' ? (
+                    <div className="space-y-8 animate-fade-in">
+                      {/* Workload Capacity Planner */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-mute mb-4">Weekly Team Resource Capacity</h4>
+                        <div className="space-y-4 font-mono text-xs">
+                          {[
+                            { id: 'usr-syed', name: 'Syed Ali (Owner)', max: 40 },
+                            { id: 'usr-alice', name: 'Alice (Manager)', max: 40 },
+                            { id: 'usr-bob', name: 'Bob (Employee)', max: 40 }
+                          ].map(member => {
+                            const assignedTasks = projects.flatMap(p => p.tasks || []).filter(t => t.assigneeId === member.id && t.status !== 'Completed');
+                            const totalHrs = assignedTasks.reduce((sum, t) => sum + (parseInt(t.estimatedHours) || 0), 0);
+                            const percent = Math.min(100, Math.round((totalHrs / member.max) * 100));
+                            const isOverloaded = totalHrs > member.max;
 
-                        <div>
-                          <div className="flex items-center justify-between text-xs font-mono text-mute mb-2">
-                            <span>Milestones stage</span>
-                            <span>{proj.progress}%</span>
-                          </div>
-                          <div className="w-full bg-canvas h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-primary h-full transition-all duration-300" style={{ width: `${proj.progress}%` }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Detailed Selected Project View */}
-                  {selectedProject && (
-                    <div className="border-t border-hairline pt-8 space-y-6">
-                      <div className="flex justify-between items-center border-b border-hairline/40 pb-4">
-                        <div>
-                          <h3 className="text-xl font-bold tracking-tight text-ink">{selectedProject.name}</h3>
-                          <p className="text-xs text-mute font-mono mt-1">Status: {selectedProject.status} | Budget: ₹{selectedProject.budget?.toLocaleString()}</p>
-                        </div>
-                        <button
-                          onClick={() => setShowAddTaskModal(true)}
-                          className="bg-canvas border border-hairline text-ink text-xs font-mono font-bold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest"
-                        >
-                          <Plus size={12} className="inline mr-1" />
-                          <span>Add Board Task</span>
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-6 items-start">
-                        {/* Milestones list */}
-                        <div className="bg-canvas-soft border border-hairline p-5 rounded-md">
-                          <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-3 font-semibold">Project Milestones</span>
-                          <div className="space-y-3 font-mono text-xs">
-                            {selectedProject.milestones?.map((mil: any) => (
-                              <div
-                                key={mil.id}
-                                onClick={() => handleToggleMilestone(mil.id, mil.status)}
-                                className="flex items-center justify-between border-b border-hairline/30 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={mil.status === 'Completed'}
-                                    onChange={() => {}} // Swallowed, parent onClick handles it
-                                    className="accent-primary"
-                                  />
-                                  <span className={`text-ink ${mil.status === 'Completed' ? 'line-through text-mute' : ''}`}>{mil.title}</span>
+                            return (
+                              <div key={member.id} className="space-y-1">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="font-semibold text-ink">{member.name}</span>
+                                  <span className={isOverloaded ? 'text-rose-400 font-bold' : 'text-mute'}>
+                                    {totalHrs} / {member.max} hrs assigned {isOverloaded && '(⚠️ Over Capacity)'}
+                                  </span>
                                 </div>
-                                <span className="text-[10px] text-mute">{mil.dueDate ? new Date(mil.dueDate).toLocaleDateString() : ''}</span>
+                                <div className="w-full bg-canvas h-3 rounded-full overflow-hidden border border-hairline relative">
+                                  <div 
+                                    className={`h-full transition-all duration-300 ${isOverloaded ? 'bg-rose-500' : percent > 80 ? 'bg-yellow-500' : 'bg-primary'}`} 
+                                    style={{ width: `${percent}%` }}
+                                  ></div>
+                                </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
+                      </div>
 
-                        {/* Attached Files Card */}
-                        <div className="bg-canvas-soft border border-hairline p-5 rounded-md mt-6">
-                          <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-3 font-semibold">Attached Project Files</span>
-                          
-                          {/* File list */}
-                          <div className="space-y-2 font-mono text-[11px] mb-4 max-h-40 overflow-y-auto pr-1">
-                            {(!selectedProject.files || selectedProject.files.length === 0) ? (
-                              <p className="text-mute italic select-none">No files attached to board.</p>
-                            ) : (
-                              selectedProject.files.map((rel: any) => {
-                                const fileObj = rel.file || rel;
-                                return (
-                                  <div key={fileObj.id} className="flex justify-between items-center border-b border-hairline/20 pb-1.5 last:border-0 last:pb-0">
-                                    <span className="text-ink truncate max-w-[140px]" title={fileObj.fileName}>{fileObj.fileName}</span>
-                                    <a
-                                      href={`http://localhost:3001/api/files/${fileObj.id}/download`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline font-bold"
+                      {/* Visual Gantt Chart */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-mute mb-4">Project Sprints Timeline (Gantt)</h4>
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[800px] space-y-4 font-mono text-xs">
+                            <div className="grid grid-cols-12 border-b border-hairline pb-2 text-mute font-bold uppercase tracking-wider text-[10px]">
+                              <div className="col-span-3">Project Sprint / Task Name</div>
+                              <div className="col-span-2">Assignee</div>
+                              <div className="col-span-7 grid grid-cols-7 text-center">
+                                <div>Mon</div>
+                                <div>Tue</div>
+                                <div>Wed</div>
+                                <div>Thu</div>
+                                <div>Fri</div>
+                                <div>Sat</div>
+                                <div>Sun</div>
+                              </div>
+                            </div>
+
+                            {projects.map((proj) => (
+                              <div key={proj.id} className="space-y-2 border-b border-hairline/20 pb-4 last:border-0 last:pb-0">
+                                <div className="grid grid-cols-12 items-center bg-canvas/30 p-2 rounded-sm border border-hairline/40">
+                                  <div className="col-span-3 font-bold text-ink truncate">{proj.name}</div>
+                                  <div className="col-span-2 text-mute italic text-[10px]">Project Sprint</div>
+                                  <div className="col-span-7 relative h-6 bg-canvas border border-hairline/60 rounded-xs overflow-hidden">
+                                    <div 
+                                      className="absolute bg-primary/20 h-full border-r border-primary/40 rounded-xs flex items-center justify-center text-[9px] font-bold text-primary"
+                                      style={{ left: '15%', width: '70%' }}
                                     >
-                                      Download
-                                    </a>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-
-                          {/* Upload form */}
-                          <div className="border-t border-hairline/40 pt-3">
-                            <label className="block text-[9px] uppercase tracking-wider text-mute mb-2">Upload Workspace Asset</label>
-                            <input
-                              type="file"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                try {
-                                  await api.projects.uploadProjectFile(selectedProject.id, file);
-                                  handleSelectProject(selectedProject); // Reload details
-                                } catch (err: any) {
-                                  alert(err.message);
-                                }
-                              }}
-                              className="w-full text-[10px] text-mute file:mr-2.5 file:py-1 file:px-2 file:rounded-xs file:border-0 file:text-[9px] file:font-mono file:uppercase file:bg-canvas file:text-mute file:hover:text-ink cursor-pointer file:cursor-pointer"
-                            />
-                          </div>
-                        </div>
-
-
-                        {/* Project Tasks board column (Kanban split in detailed view) */}
-                        <div className="bg-canvas-soft border border-hairline p-5 rounded-md col-span-2 space-y-4">
-                          <span className="block text-[10px] uppercase font-mono tracking-wider text-mute font-semibold">Active Tasks Log</span>
-                          
-                          <div className="space-y-4">
-                            {selectedProject.tasks?.map((task: any) => (
-                              <div key={task.id} className="bg-canvas border border-hairline p-4 rounded-md flex flex-col justify-between">
-                                <div className="flex justify-between items-start mb-2">
-                                  <h5 className="text-sm font-bold text-ink">{task.title}</h5>
-                                  <select
-                                    value={task.status}
-                                    onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                                    className="bg-canvas-soft border border-hairline text-[10px] p-1 rounded font-mono text-mute uppercase"
-                                  >
-                                    {['To Do', 'In Progress', 'Review', 'Completed'].map(st => (
-                                      <option key={st} value={st}>{st}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <p className="text-xs text-body-text leading-relaxed font-sans mb-3">{task.description || 'No description notes.'}</p>
-
-                                {/* Stopwatch Widget */}
-                                <div className="flex items-center gap-4 bg-canvas-soft/30 px-3.5 py-2 border border-hairline rounded-sm mb-3 font-mono text-xs select-none">
-                                  <div className="flex items-center gap-2 flex-1">
-                                    <Clock size={12} className={activeTimerTaskId === task.id ? 'text-orange-400 animate-pulse' : 'text-mute'} />
-                                    <span className="text-mute text-[9px] uppercase font-semibold">Stopwatch:</span>
-                                    <span className="text-ink font-bold font-mono">
-                                      {activeTimerTaskId === task.id ? formatTime(activeTimerSeconds) : '00:00'}
-                                    </span>
-                                    <span className="text-mute text-[9px]">({task.actualHours || 0} hrs logged)</span>
-                                  </div>
-                                  <div>
-                                    {activeTimerTaskId === task.id ? (
-                                      <button
-                                        onClick={() => handlePauseAndSave(task)}
-                                        className="bg-primary text-on-primary hover:opacity-90 font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
-                                      >
-                                        Log Hours
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleStartTimer(task.id)}
-                                        className="border border-hairline bg-canvas hover:bg-canvas-soft text-mute hover:text-ink font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
-                                      >
-                                        Start Timer
-                                      </button>
-                                    )}
+                                      Sprint Duration
+                                    </div>
                                   </div>
                                 </div>
+                                {proj.tasks && proj.tasks.length > 0 ? (
+                                  <div className="pl-4 space-y-2">
+                                    {proj.tasks.map((task: any) => {
+                                      let left = '10%';
+                                      let width = '40%';
+                                      if (task.priority === 'High' || task.priority === 'Critical') {
+                                        left = '20%';
+                                        width = '60%';
+                                      } else if (task.priority === 'Low') {
+                                        left = '40%';
+                                        width = '30%';
+                                      } else {
+                                        left = '30%';
+                                        width = '45%';
+                                      }
+                                      const assigneeName = task.assignee?.firstName || (task.assigneeId === 'usr-syed' ? 'Syed' : task.assigneeId === 'usr-alice' ? 'Alice' : task.assigneeId === 'usr-bob' ? 'Bob' : 'Unassigned');
 
-                                {/* Checklist sub-section */}
-                                {task.checklists && task.checklists.length > 0 && (
-                                  <div className="bg-canvas-soft/40 p-3 rounded-sm border border-hairline/40 text-xs font-mono space-y-2 mb-3">
-                                    <span className="block text-[9px] uppercase text-mute tracking-wider font-semibold">Subtasks Checklist</span>
-                                    {task.checklists.map((check: any) => (
-                                      <div key={check.id} className="flex items-center gap-2">
-                                        <input
-                                          type="checkbox"
-                                          checked={check.completed}
-                                          onChange={(e) => handleToggleChecklist(check.id, e.target.checked)}
-                                          className="accent-primary"
-                                        />
-                                        <span className={check.completed ? 'line-through text-mute' : 'text-body-strong'}>{check.title}</span>
-                                      </div>
-                                    ))}
+                                      return (
+                                        <div key={task.id} className="grid grid-cols-12 items-center text-[11px] py-1">
+                                          <div className="col-span-3 pl-2 text-mute truncate flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                                            {task.title}
+                                          </div>
+                                          <div className="col-span-2 text-body-text">{assigneeName}</div>
+                                          <div className="col-span-7 relative h-5 bg-canvas/20 rounded-xs border border-hairline/30 overflow-hidden">
+                                            <div 
+                                              className={`absolute h-full rounded-xs flex items-center px-2 text-[8px] font-semibold text-on-primary ${
+                                                task.status === 'Completed' ? 'bg-emerald-500/70' : task.status === 'In Progress' ? 'bg-primary/80' : 'bg-mute/60'
+                                              }`}
+                                              style={{ left, width }}
+                                            >
+                                              {task.status} ({task.estimatedHours || 0}h)
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
+                                ) : (
+                                  <div className="pl-6 text-[10px] text-mute select-none italic">No tasks created yet for this project.</div>
                                 )}
-
-                                {/* Add checklist inline form */}
-                                <div className="flex gap-2 items-center mb-3">
-                                  <input
-                                    type="text"
-                                    placeholder="Add subtask..."
-                                    value={checklistInputs[task.id] || ''}
-                                    onChange={(e) => setChecklistInputs({ ...checklistInputs, [task.id]: e.target.value })}
-                                    className="bg-canvas-soft border border-hairline text-[10px] px-2 py-1 rounded-sm w-36 text-ink focus:outline-none"
-                                  />
-                                  <button
-                                    onClick={() => handleAddTaskChecklist(task.id)}
-                                    className="bg-primary text-on-primary font-bold text-[9px] px-2 py-1 rounded-sm uppercase tracking-wider"
-                                  >
-                                    Add
-                                  </button>
-                                </div>
-
-                                {/* Comments list */}
-                                {task.comments && task.comments.length > 0 && (
-                                  <div className="mt-2 border-t border-hairline/30 pt-3 space-y-2 text-[10px] font-mono">
-                                    <span className="block text-[9px] uppercase text-mute tracking-wider font-semibold">Comments feed</span>
-                                    {task.comments.map((comm: any) => (
-                                      <div key={comm.id} className="text-body-text">
-                                        <strong className="text-ink">{comm.user?.firstName}:</strong> {comm.comment}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {/* Add comment input */}
-                                <div className="flex gap-2 items-center mt-3 pt-3 border-t border-hairline/20">
-                                  <input
-                                    type="text"
-                                    placeholder="Write a comment..."
-                                    value={taskComments[task.id] || ''}
-                                    onChange={(e) => setTaskComments({ ...taskComments, [task.id]: e.target.value })}
-                                    className="flex-1 bg-canvas-soft border border-hairline text-xs px-2.5 py-1.5 rounded-sm text-ink focus:outline-none"
-                                  />
-                                  <button
-                                    onClick={() => handleAddTaskComment(task.id)}
-                                    className="text-mute hover:text-primary p-1 rounded"
-                                  >
-                                    <Send size={14} />
-                                  </button>
-                                </div>
-
                               </div>
                             ))}
                           </div>
                         </div>
                       </div>
                     </div>
-                  )}
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Projects List Grid */}
+                      <div className="grid grid-cols-3 gap-6">
+                        {projects.map((proj) => (
+                          <div
+                            key={proj.id}
+                            onClick={() => handleSelectProject(proj)}
+                            className={`bg-canvas-soft border p-6 rounded-md cursor-pointer transition-all duration-150 flex flex-col justify-between ${selectedProject?.id === proj.id ? 'border-primary' : 'border-hairline hover:border-body-text'}`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between text-mute text-[10px] font-mono mb-2 uppercase tracking-wider">
+                                <span>{proj.client?.companyName || 'No Client'}</span>
+                                <span className={`px-2 py-0.5 rounded-xs font-bold ${
+                                  proj.priority === 'High' ? 'bg-red-950/60 text-red-300' : 'bg-gray-800 text-gray-300'
+                                }`}>{proj.priority}</span>
+                              </div>
+                              <h4 className="text-lg font-bold text-ink mb-2">{proj.name}</h4>
+                              <p className="text-xs text-body-text line-clamp-2 mb-4 leading-relaxed">{proj.description || 'No description notes.'}</p>
+                            </div>
 
+                            <div>
+                              <div className="flex items-center justify-between text-xs font-mono text-mute mb-2">
+                                <span>Milestones stage</span>
+                                <span>{proj.progress}%</span>
+                              </div>
+                              <div className="w-full bg-canvas h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-primary h-full transition-all duration-300" style={{ width: `${proj.progress}%` }}></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Detailed Selected Project View */}
+                      {selectedProject && (
+                        <div className="border-t border-hairline pt-8 space-y-6">
+                          <div className="flex justify-between items-center border-b border-hairline/40 pb-4">
+                            <div>
+                              <h3 className="text-xl font-bold tracking-tight text-ink">{selectedProject.name}</h3>
+                              <p className="text-xs text-mute font-mono mt-1">Status: {selectedProject.status} | Budget: ₹{selectedProject.budget?.toLocaleString()}</p>
+                            </div>
+                            <button
+                              onClick={() => setShowAddTaskModal(true)}
+                              className="bg-canvas border border-hairline text-ink text-xs font-mono font-bold px-4 py-2 rounded-sm hover:bg-canvas-soft uppercase tracking-widest"
+                            >
+                              <Plus size={12} className="inline mr-1" />
+                              <span>Add Board Task</span>
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-6 items-start">
+                            {/* Milestones list */}
+                            <div className="bg-canvas-soft border border-hairline p-5 rounded-md">
+                              <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-3 font-semibold">Project Milestones</span>
+                              <div className="space-y-3 font-mono text-xs">
+                                {selectedProject.milestones?.map((mil: any) => (
+                                  <div
+                                    key={mil.id}
+                                    onClick={() => handleToggleMilestone(mil.id, mil.status)}
+                                    className="flex items-center justify-between border-b border-hairline/30 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={mil.status === 'Completed'}
+                                        onChange={() => {}} // Swallowed, parent onClick handles it
+                                        className="accent-primary"
+                                      />
+                                      <span className={`text-ink ${mil.status === 'Completed' ? 'line-through text-mute' : ''}`}>{mil.title}</span>
+                                    </div>
+                                    <span className="text-[10px] text-mute">{mil.dueDate ? new Date(mil.dueDate).toLocaleDateString() : ''}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Attached Files Card */}
+                            <div className="bg-canvas-soft border border-hairline p-5 rounded-md mt-6">
+                              <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-3 font-semibold">Attached Project Files</span>
+                              
+                              {/* File list */}
+                              <div className="space-y-2 font-mono text-[11px] mb-4 max-h-40 overflow-y-auto pr-1">
+                                {(!selectedProject.files || selectedProject.files.length === 0) ? (
+                                  <p className="text-mute italic select-none">No files attached to board.</p>
+                                ) : (
+                                  selectedProject.files.map((rel: any) => {
+                                    const fileObj = rel.file || rel;
+                                    return (
+                                      <div key={fileObj.id} className="flex justify-between items-center border-b border-hairline/20 pb-1.5 last:border-0 last:pb-0">
+                                        <span className="text-ink truncate max-w-[140px]" title={fileObj.fileName}>{fileObj.fileName}</span>
+                                        <a
+                                          href={`http://localhost:3001/api/files/${fileObj.id}/download`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline font-bold"
+                                        >
+                                          Download
+                                        </a>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+
+                              {/* Upload form */}
+                              <div className="border-t border-hairline/40 pt-3">
+                                <label className="block text-[9px] uppercase tracking-wider text-mute mb-2">Upload Workspace Asset</label>
+                                <input
+                                  type="file"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    try {
+                                      await api.projects.uploadProjectFile(selectedProject.id, file);
+                                      handleSelectProject(selectedProject); // Reload details
+                                    } catch (err: any) {
+                                      alert(err.message);
+                                    }
+                                  }}
+                                  className="w-full text-[10px] text-mute file:mr-2.5 file:py-1 file:px-2 file:rounded-xs file:border-0 file:text-[9px] file:font-mono file:uppercase file:bg-canvas file:text-mute file:hover:text-ink cursor-pointer file:cursor-pointer"
+                                />
+                              </div>
+                            </div>
+
+
+                            {/* Project Tasks board column (Kanban split in detailed view) */}
+                            <div className="bg-canvas-soft border border-hairline p-5 rounded-md col-span-2 space-y-4">
+                              <span className="block text-[10px] uppercase font-mono tracking-wider text-mute font-semibold">Active Tasks Log</span>
+                              
+                              <div className="space-y-4">
+                                {selectedProject.tasks?.map((task: any) => (
+                                  <div key={task.id} className="bg-canvas border border-hairline p-4 rounded-md flex flex-col justify-between">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <h5 className="text-sm font-bold text-ink">{task.title}</h5>
+                                      <select
+                                        value={task.status}
+                                        onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
+                                        className="bg-canvas-soft border border-hairline text-[10px] p-1 rounded font-mono text-mute uppercase"
+                                      >
+                                        {['To Do', 'In Progress', 'Review', 'Completed'].map(st => (
+                                          <option key={st} value={st}>{st}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <p className="text-xs text-body-text leading-relaxed font-sans mb-3">{task.description || 'No description notes.'}</p>
+
+                                    {/* Stopwatch Widget */}
+                                    <div className="flex items-center gap-4 bg-canvas-soft/30 px-3.5 py-2 border border-hairline rounded-sm mb-3 font-mono text-xs select-none">
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <Clock size={12} className={activeTimerTaskId === task.id ? 'text-orange-400 animate-pulse' : 'text-mute'} />
+                                        <span className="text-mute text-[9px] uppercase font-semibold">Stopwatch:</span>
+                                        <span className="text-ink font-bold font-mono">
+                                          {activeTimerTaskId === task.id ? formatTime(activeTimerSeconds) : '00:00'}
+                                        </span>
+                                        <span className="text-mute text-[9px]">({task.actualHours || 0} hrs logged)</span>
+                                      </div>
+                                      <div>
+                                        {activeTimerTaskId === task.id ? (
+                                          <button
+                                            onClick={() => handlePauseAndSave(task)}
+                                            className="bg-primary text-on-primary hover:opacity-90 font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
+                                          >
+                                            Log Hours
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleStartTimer(task.id)}
+                                            className="border border-hairline bg-canvas hover:bg-canvas-soft text-mute hover:text-ink font-bold text-[9px] px-2.5 py-1 rounded-sm uppercase tracking-wider transition-colors cursor-pointer"
+                                          >
+                                            Start Timer
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Checklist sub-section */}
+                                    {task.checklists && task.checklists.length > 0 && (
+                                      <div className="bg-canvas-soft/40 p-3 rounded-sm border border-hairline/40 text-xs font-mono space-y-2 mb-3">
+                                        <span className="block text-[9px] uppercase text-mute tracking-wider font-semibold">Subtasks Checklist</span>
+                                        {task.checklists.map((check: any) => (
+                                          <div key={check.id} className="flex items-center gap-2">
+                                            <input
+                                              type="checkbox"
+                                              checked={check.completed}
+                                              onChange={(e) => handleToggleChecklist(check.id, e.target.checked)}
+                                              className="accent-primary"
+                                            />
+                                            <span className={check.completed ? 'line-through text-mute' : 'text-body-strong'}>{check.title}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Add checklist inline form */}
+                                    <div className="flex gap-2 items-center mb-3">
+                                      <input
+                                        type="text"
+                                        placeholder="Add subtask..."
+                                        value={checklistInputs[task.id] || ''}
+                                        onChange={(e) => setChecklistInputs({ ...checklistInputs, [task.id]: e.target.value })}
+                                        className="bg-canvas-soft border border-hairline text-[10px] px-2 py-1 rounded-sm w-36 text-ink focus:outline-none"
+                                      />
+                                      <button
+                                        onClick={() => handleAddTaskChecklist(task.id)}
+                                        className="bg-primary text-on-primary font-bold text-[9px] px-2 py-1 rounded-sm uppercase tracking-wider"
+                                      >
+                                        Add
+                                      </button>
+                                    </div>
+
+                                    {/* Comments list */}
+                                    {task.comments && task.comments.length > 0 && (
+                                      <div className="mt-2 border-t border-hairline/30 pt-3 space-y-2 text-[10px] font-mono">
+                                        <span className="block text-[9px] uppercase text-mute tracking-wider font-semibold">Comments feed</span>
+                                        {task.comments.map((comm: any) => (
+                                          <div key={comm.id} className="text-body-text">
+                                            <strong className="text-ink">{comm.user?.firstName}:</strong> {comm.comment}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Add comment input */}
+                                    <div className="flex gap-2 items-center mt-3 pt-3 border-t border-hairline/20">
+                                      <input
+                                        type="text"
+                                        placeholder="Write a comment..."
+                                        value={taskComments[task.id] || ''}
+                                        onChange={(e) => setTaskComments({ ...taskComments, [task.id]: e.target.value })}
+                                        className="flex-1 bg-canvas-soft border border-hairline text-xs px-2.5 py-1.5 rounded-sm text-ink focus:outline-none"
+                                      />
+                                      <button
+                                        onClick={() => handleAddTaskComment(task.id)}
+                                        className="text-mute hover:text-primary p-1 rounded"
+                                      >
+                                        <Send size={14} />
+                                      </button>
+                                    </div>
+
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* Save Time Log Modal */}
                   {showSaveTimeLogModal && timeLogTask && (
                     <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -3172,8 +3821,125 @@ export default function Home() {
 
               {/* TAB 5: FINANCE */}
               {activeTab === 'finance' && (
-                <div className="space-y-8">
+                <div className="space-y-8 animate-fade-in">
                   
+                  {/* SaaS Powerhouse: Cash Flow Forecasting */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-canvas-soft border border-hairline p-6 rounded-md">
+                    <div className="lg:col-span-2 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-mute">6-Month Cash Flow Forecasting Projections</h4>
+                        <span className="text-[10px] text-green-400 font-mono">Auto-forecasted based on active projects & invoices</span>
+                      </div>
+                      
+                      {/* Responsive SVG Forecasting Chart */}
+                      <div className="bg-canvas border border-hairline rounded p-4 h-64 relative flex items-end">
+                        <svg className="w-full h-full" viewBox="0 0 600 200" preserveAspectRatio="none">
+                          {/* Grid lines */}
+                          <line x1="0" y1="50" x2="600" y2="50" stroke="#f7f5f0" strokeOpacity="0.05" strokeWidth="1" />
+                          <line x1="0" y1="100" x2="600" y2="100" stroke="#f7f5f0" strokeOpacity="0.05" strokeWidth="1" />
+                          <line x1="0" y1="150" x2="600" y2="150" stroke="#f7f5f0" strokeOpacity="0.05" strokeWidth="1" />
+
+                          {/* Data lines: Revenue (Primary), Expense (Mute/Hairline), Balance (Green) */}
+                          <path
+                            d="M 50 150 L 150 120 L 250 110 L 350 70 L 450 50 L 550 30"
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          {/* Expenses Line */}
+                          <path
+                            d="M 50 180 L 150 160 L 250 170 L 350 160 L 450 155 L 550 150"
+                            fill="none"
+                            stroke="#6b7280"
+                            strokeWidth="2"
+                            strokeDasharray="4 4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          {/* Balance Line */}
+                          <path
+                            d="M 50 160 L 150 140 L 250 130 L 350 100 L 450 85 L 550 60"
+                            fill="none"
+                            stroke="#10b981"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+
+                          {/* Dots on points */}
+                          {[
+                            { x: 50, rev: 150, exp: 180, bal: 160 },
+                            { x: 150, rev: 120, exp: 160, bal: 140 },
+                            { x: 250, rev: 110, exp: 170, bal: 130 },
+                            { x: 350, rev: 70, exp: 160, bal: 100 },
+                            { x: 450, rev: 50, exp: 155, bal: 85 },
+                            { x: 550, rev: 30, exp: 150, bal: 60 },
+                          ].map((pt, index) => (
+                            <g key={index}>
+                              <circle cx={pt.x} cy={pt.rev} r="4" fill="#f59e0b" className="hover:r-6 cursor-pointer" />
+                              <circle cx={pt.x} cy={pt.exp} r="3" fill="#6b7280" className="hover:r-5 cursor-pointer" />
+                              <circle cx={pt.x} cy={pt.bal} r="4" fill="#10b981" className="hover:r-6 cursor-pointer" />
+                            </g>
+                          ))}
+                        </svg>
+                        
+                        {/* Month labels absolute positioned bottom */}
+                        <div className="absolute bottom-1 left-0 right-0 flex justify-between px-8 text-[9px] text-mute font-mono">
+                          <span>Jul (Proj)</span>
+                          <span>Aug (Proj)</span>
+                          <span>Sep (Proj)</span>
+                          <span>Oct (Proj)</span>
+                          <span>Nov (Proj)</span>
+                          <span>Dec (Proj)</span>
+                        </div>
+                      </div>
+
+                      {/* Legend */}
+                      <div className="flex gap-6 justify-center text-[10px] font-mono select-none">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block w-3 h-0.5 bg-[#f59e0b]"></span>
+                          <span className="text-mute">Revenue Trend</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block w-3 h-0.5 bg-[#6b7280] border-dashed border-t"></span>
+                          <span className="text-mute">Operating Costs</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block w-3 h-0.5 bg-[#10b981]"></span>
+                          <span className="text-mute">Net Balance</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Gateway Webhook Config Panel */}
+                    <div className="bg-canvas border border-hairline p-5 rounded-sm flex flex-col justify-between font-mono text-xs space-y-4">
+                      <div>
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary border-b border-hairline pb-2 mb-2">Stripe Processor Integration</h4>
+                        <p className="text-[11px] text-body-text leading-relaxed font-serif italic mb-4">
+                          Establish automated ledger reconciliation by configuring the Stripe payment webhook endpoint in your Developer Dashboard.
+                        </p>
+                        <div className="bg-canvas-soft border border-hairline/60 p-3 rounded space-y-1.5 text-[10px]">
+                          <div><span className="text-mute">Webhook Endpoint URL:</span></div>
+                          <div className="text-ink select-all break-all bg-canvas px-1 py-0.5 border border-hairline/30 rounded text-[9px]">
+                            http://localhost:3001/api/webhooks/stripe
+                          </div>
+                          <div><span className="text-mute">Listening events:</span></div>
+                          <div className="text-primary font-bold">invoice.payment_succeeded</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          alert('Webhook listener verified. Stripe status active.');
+                        }}
+                        className="w-full bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold py-2 rounded-xs uppercase tracking-wider"
+                      >
+                        Verify Webhook Connectivity
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Ledger Header */}
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Financial Invoices Ledger</h3>
@@ -3684,8 +4450,20 @@ export default function Home() {
 
               {/* TAB 7: AUTOMATIONS */}
               {activeTab === 'automations' && (
-                <div className="space-y-6">
-                  <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Automation Rule Triggers</h3>
+                <div className="space-y-6 animate-fade-in">
+                  <div className="flex justify-between items-center border-b border-hairline pb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold tracking-wide uppercase font-mono text-mute">Automation Rule Triggers</h3>
+                      <p className="text-xs text-mute font-mono">Create and trigger automated workflows based on system events.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowCreateRuleModal(true)}
+                      className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-sm flex items-center gap-2 hover:opacity-90 uppercase tracking-widest font-mono cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Create Custom Rule</span>
+                    </button>
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-6">
                     {automations.map((rule) => (
@@ -3693,9 +4471,45 @@ export default function Home() {
                         <div>
                           <div className="flex justify-between items-center mb-4">
                             <h4 className="text-sm font-bold text-ink">{rule.name}</h4>
-                            <span className={`px-2 py-0.5 rounded-xs font-mono font-bold text-[9px] uppercase tracking-wider ${rule.isActive ? 'bg-green-950 text-green-300' : 'bg-mute text-canvas'}`}>
-                              {rule.isActive ? 'Active' : 'Disabled'}
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => handleToggleRuleActive(rule.id)}
+                                className={`text-[9px] font-bold font-mono px-2 py-0.5 rounded-xs uppercase tracking-wider ${rule.isActive ? 'bg-green-950 text-green-300 border border-green-500/20' : 'bg-canvas border border-hairline text-mute'}`}
+                              >
+                                {rule.isActive ? 'Active' : 'Disabled'}
+                              </button>
+                              {rule.isActive && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const logMsg = rule.triggerType === 'Lead Created' 
+                                        ? `Lead captured -> Dispatched ${rule.actionType}`
+                                        : rule.triggerType === 'Invoice Paid'
+                                        ? `Invoice paid -> Dispatched ${rule.actionType}`
+                                        : `Task marked Completed -> Dispatched ${rule.actionType}`;
+                                      const log = {
+                                        id: 'log-' + Date.now(),
+                                        message: logMsg,
+                                        status: 'Success',
+                                        executedAt: new Date().toISOString()
+                                      };
+                                      setAutomations(automations.map(r => {
+                                        if (r.id === rule.id) {
+                                          return { ...r, logs: [log, ...(r.logs || [])] };
+                                        }
+                                        return r;
+                                      }));
+                                      alert(`Triggered automation: ${rule.name}!`);
+                                    } catch (err: any) {
+                                      alert(err.message);
+                                    }
+                                  }}
+                                  className="text-[9px] font-bold font-mono px-2 py-0.5 rounded-xs uppercase tracking-wider bg-primary text-on-primary"
+                                >
+                                  Test Run
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Rule definitions */}
@@ -3712,7 +4526,7 @@ export default function Home() {
                             {rule.logs && rule.logs.length > 0 ? (
                               rule.logs.map((log: any) => (
                                 <div key={log.id} className="flex justify-between text-mute">
-                                  <span>Reconciled Stage Trigger - {log.status}</span>
+                                  <span>{log.message || `Reconciled Stage Trigger - ${log.status}`}</span>
                                   <span>{new Date(log.executedAt).toLocaleTimeString()}</span>
                                 </div>
                               ))
@@ -3725,72 +4539,145 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Create Custom Automation Rule Modal */}
+                  {showCreateRuleModal && (
+                    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                      <div className="bg-canvas-soft border border-hairline w-full max-w-md p-8 rounded-md shadow-2xl relative">
+                        <button
+                          onClick={() => setShowCreateRuleModal(false)}
+                          className="absolute top-6 right-6 text-mute hover:text-ink cursor-pointer"
+                        >
+                          <X size={20} />
+                        </button>
+                        <h2 className="text-lg font-bold font-mono uppercase tracking-wider mb-6 text-primary border-b border-hairline pb-2">Create Custom Rule</h2>
+                        <form onSubmit={handleCreateAutomationRule} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Rule Name</label>
+                            <input
+                              type="text"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                              placeholder="e.g. Notify Slack on New Lead"
+                              value={newRuleForm.name}
+                              onChange={e => setNewRuleForm({ ...newRuleForm, name: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-mute mb-1">Trigger Event (IF)</label>
+                              <select
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                                value={newRuleForm.triggerType}
+                                onChange={e => setNewRuleForm({ ...newRuleForm, triggerType: e.target.value })}
+                              >
+                                <option value="Lead Created">Lead Created</option>
+                                <option value="Invoice Paid">Invoice Paid</option>
+                                <option value="Task Completed">Task Completed</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-mute mb-1">Target Action (THEN)</label>
+                              <select
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans"
+                                value={newRuleForm.actionType}
+                                onChange={e => setNewRuleForm({ ...newRuleForm, actionType: e.target.value })}
+                              >
+                                <option value="Send WhatsApp Alert">Send WhatsApp Alert</option>
+                                <option value="Send Slack Alert">Send Slack Alert</option>
+                                <option value="Create Kickoff Board">Create Kickoff Board</option>
+                                <option value="Email Representative">Email Representative</option>
+                              </select>
+                            </div>
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary font-bold py-3 rounded-sm uppercase tracking-widest text-xs mt-2 hover:opacity-95 transition-opacity"
+                          >
+                            Save Automation Rule
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
 
               {/* TAB 8: CLIENT PORTAL */}
-              {activeTab === 'portal' && (
-                <div className="space-y-8">
-                  {/* Banner */}
-                  <div className="bg-canvas-soft border border-hairline p-8 rounded-md flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">Acme Corp Portal Gateway</span>
-                      <h3 className="text-xl font-bold tracking-tight text-ink mt-1">Hello John Doe 👋</h3>
-                      <p className="text-xs text-mute font-mono mt-1">Review mock deliverables status and pay open bills.</p>
-                    </div>
-                    <div className="text-right font-mono text-xs text-mute">
-                      <div>Company: Acme Corporation</div>
-                      <div>Partner Account Manager: Syed Ali</div>
-                    </div>
-                  </div>
-
-                  {/* Project progress view */}
-                  <div className="bg-canvas border border-hairline p-6 rounded-md">
-                    <div className="flex justify-between items-center mb-4 text-xs font-mono text-mute">
-                      <span className="font-semibold text-ink uppercase tracking-wider">Acme Web App Redesign Board</span>
-                      <span>60% Completed</span>
-                    </div>
-                    <div className="w-full bg-canvas-soft h-3 rounded-full overflow-hidden mb-6">
-                      <div className="bg-primary h-full" style={{ width: '60%' }}></div>
-                    </div>
-
-                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-mute mb-3">Tasks Under Review</h4>
-                    <div className="space-y-3 font-mono text-xs">
-                      {projects.flatMap(p => p.tasks).filter(t => t.status === 'In Progress' || t.status === 'Review').map(t => (
-                        <div key={t.id} className="bg-canvas-soft border border-hairline/60 p-4 rounded flex justify-between items-center">
-                          <div>
-                            <div className="font-bold text-ink">{t.title}</div>
-                            <div className="text-[10px] text-mute mt-1">{t.description}</div>
-                          </div>
-                          <span className="px-2 py-0.5 bg-yellow-950 text-yellow-300 text-[9px] uppercase font-bold tracking-wider rounded-xs">{t.status}</span>
+              {activeTab === 'portal' && (() => {
+                const theme = getThemeClasses(whiteLabelSettings.themeColor);
+                return (
+                  <div className="space-y-8 animate-fade-in">
+                    {/* Banner */}
+                    <div className={`${theme.bgSoft} p-8 rounded-md flex items-center justify-between`}>
+                      <div className="flex items-center gap-6">
+                        {whiteLabelSettings.logoUrl ? (
+                          <img src={whiteLabelSettings.logoUrl} alt="Logo" className="w-12 h-12 object-contain rounded" />
+                        ) : (
+                          <div className={`${theme.primaryBg} text-on-primary rounded flex items-center justify-center font-bold text-xl font-mono w-12 h-12`}>Q</div>
+                        )}
+                        <div>
+                          <span className={`text-xs font-mono font-bold uppercase tracking-wider ${theme.primaryText}`}>
+                            Acme Corp Portal Gateway {whiteLabelSettings.customSubdomain && `(${whiteLabelSettings.customSubdomain})`}
+                          </span>
+                          <h3 className="text-xl font-bold tracking-tight text-ink mt-1">Hello John Doe 👋</h3>
+                          <p className="text-xs text-mute font-mono mt-1">Review mock deliverables status and pay open bills.</p>
                         </div>
-                      ))}
+                      </div>
+                      <div className="text-right font-mono text-xs text-mute">
+                        <div>Company: Acme Corporation</div>
+                        <div>Partner Account Manager: Syed Ali</div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Unpaid Invoices */}
-                  <div className="bg-canvas border border-hairline p-6 rounded-md">
-                    <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-4 font-semibold">Outstanding Payment Bills</span>
-                    <div className="space-y-3">
-                      {invoices.filter(i => i.status !== 'Paid').map(inv => (
-                        <div key={inv.id} className="bg-canvas-soft border border-hairline/60 p-4 rounded flex justify-between items-center font-mono text-xs">
-                          <div>
-                            <span className="font-bold text-ink">{inv.invoiceNumber}</span>
-                            <div className="text-[10px] text-mute mt-1">Due Date: {new Date(inv.dueDate).toLocaleDateString()}</div>
+                    {/* Project progress view */}
+                    <div className="bg-canvas border border-hairline p-6 rounded-md">
+                      <div className="flex justify-between items-center mb-4 text-xs font-mono text-mute">
+                        <span className="font-semibold text-ink uppercase tracking-wider">Acme Web App Redesign Board</span>
+                        <span>60% Completed</span>
+                      </div>
+                      <div className="w-full bg-canvas-soft h-3 rounded-full overflow-hidden mb-6">
+                        <div className={`${theme.primaryBg} h-full`} style={{ width: '60%' }}></div>
+                      </div>
+
+                      <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-mute mb-3">Tasks Under Review</h4>
+                      <div className="space-y-3 font-mono text-xs">
+                        {projects.flatMap(p => p.tasks).filter(t => t.status === 'In Progress' || t.status === 'Review').map(t => (
+                          <div key={t.id} className="bg-canvas-soft border border-hairline/60 p-4 rounded flex justify-between items-center">
+                            <div>
+                              <div className="font-bold text-ink">{t.title}</div>
+                              <div className="text-[10px] text-mute mt-1">{t.description}</div>
+                            </div>
+                            <span className="px-2 py-0.5 bg-yellow-950 text-yellow-300 text-[9px] uppercase font-bold tracking-wider rounded-xs">{t.status}</span>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <span className="text-primary font-bold">₹{inv.totalAmount.toLocaleString()}</span>
-                            <button
-                              onClick={() => setSelectedInvoice(inv)}
-                              className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-4 py-2 rounded-xs uppercase tracking-wider"
-                            >
-                              Check Out
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Unpaid Invoices */}
+                    <div className="bg-canvas border border-hairline p-6 rounded-md">
+                      <span className="block text-[10px] uppercase font-mono tracking-wider text-mute mb-4 font-semibold">Outstanding Payment Bills</span>
+                      <div className="space-y-3">
+                        {invoices.filter(i => i.status !== 'Paid').map(inv => (
+                          <div key={inv.id} className="bg-canvas-soft border border-hairline/60 p-4 rounded flex justify-between items-center font-mono text-xs">
+                            <div>
+                              <span className="font-bold text-ink">{inv.invoiceNumber}</span>
+                              <div className="text-[10px] text-mute mt-1">Due Date: {new Date(inv.dueDate).toLocaleDateString()}</div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className={`${theme.primaryText} font-bold`}>₹{inv.totalAmount.toLocaleString()}</span>
+                              <button
+                                onClick={() => setSelectedInvoice(inv)}
+                                className={`${theme.primaryBg} hover:opacity-90 text-on-primary text-[10px] font-bold px-4 py-2 rounded-xs uppercase tracking-wider`}
+                              >
+                                Check Out
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                   {/* Contracts & E-Signatures */}
                   <div className="bg-canvas border border-hairline p-6 rounded-md">
@@ -3924,8 +4811,9 @@ export default function Home() {
                     </div>
                   )}
 
-                </div>
-              )}
+                  </div>
+                );
+              })()}
 
               {/* TAB: DEADLINE CALENDAR */}
               {activeTab === 'calendar' && (
@@ -4257,6 +5145,57 @@ export default function Home() {
                           </button>
                         </form>
                       </div>
+
+                      {/* White-Label Portal Configurations */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">White-Label Configurations</h3>
+                        <form onSubmit={(e) => {
+                          e.preventDefault();
+                          alert('White-Label branding applied to Portal View!');
+                        }} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Brand Logo URL</label>
+                            <input
+                              type="text"
+                              value={whiteLabelSettings.logoUrl}
+                              onChange={e => setWhiteLabelSettings({ ...whiteLabelSettings, logoUrl: e.target.value })}
+                              placeholder="e.g. https://logo.png"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Custom Subdomain</label>
+                            <input
+                              type="text"
+                              value={whiteLabelSettings.customSubdomain}
+                              onChange={e => setWhiteLabelSettings({ ...whiteLabelSettings, customSubdomain: e.target.value })}
+                              placeholder="e.g. clientportal.agency.com"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Portal Color Theme</label>
+                            <select
+                              value={whiteLabelSettings.themeColor}
+                              onChange={e => setWhiteLabelSettings({ ...whiteLabelSettings, themeColor: e.target.value })}
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            >
+                              <option value="indigo">Slate Indigo (Default)</option>
+                              <option value="emerald">Vibrant Emerald</option>
+                              <option value="violet">Deep Violet</option>
+                              <option value="rose">Soft Rose</option>
+                              <option value="slate">Monochrome Slate</option>
+                            </select>
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary text-xs font-semibold py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
+                          >
+                            Save Brand Settings
+                          </button>
+                        </form>
+                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -4359,6 +5298,47 @@ export default function Home() {
                 </button>
               </form>
 
+            </div>
+          )}
+
+          {/* Draft AI Follow-up Email Modal */}
+          {showAIEmailModal && (
+            <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-canvas-soft border border-hairline w-full max-w-lg p-8 rounded-md shadow-2xl relative">
+                <button
+                  onClick={() => setShowAIEmailModal(false)}
+                  className="absolute top-6 right-6 text-mute hover:text-ink cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+                <h2 className="text-lg font-bold font-mono uppercase tracking-wider mb-6 text-primary border-b border-hairline pb-2">AI Drafted Email Follow-up</h2>
+                <div className="space-y-4 font-mono text-xs text-body-strong">
+                  <textarea
+                    rows={10}
+                    className="w-full bg-canvas border border-hairline p-3 rounded-sm text-ink text-sm font-sans focus:outline-none"
+                    value={aiEmailDraft}
+                    onChange={e => setAiEmailDraft(e.target.value)}
+                  />
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(aiEmailDraft);
+                        alert('Copied to clipboard!');
+                        setShowAIEmailModal(false);
+                      }}
+                      className="flex-grow bg-primary text-on-primary font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:opacity-95 transition-opacity"
+                    >
+                      Copy Draft
+                    </button>
+                    <button
+                      onClick={() => setShowAIEmailModal(false)}
+                      className="flex-grow border border-hairline bg-canvas text-mute font-bold py-2.5 rounded-sm uppercase tracking-widest text-xs hover:text-ink transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

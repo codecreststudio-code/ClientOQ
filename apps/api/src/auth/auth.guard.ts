@@ -7,13 +7,27 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
+    let token = '';
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (request.headers.cookie) {
+      // Parse cookies manually to support HTTP-only cookie authentication
+      const cookies = request.headers.cookie.split(';').reduce((acc, cookie) => {
+        const parts = cookie.trim().split('=');
+        const key = parts[0];
+        const val = parts.slice(1).join('=');
+        acc[key] = val;
+        return acc;
+      }, {} as Record<string, string>);
+      token = cookies['clientoq_jwt'];
+    }
+
+    if (!token) {
       throw new UnauthorizedException('Missing or invalid auth token');
     }
 
-    const token = authHeader.split(' ')[1];
     try {
       const payload = this.jwtService.verify(token);
       request.user = {
