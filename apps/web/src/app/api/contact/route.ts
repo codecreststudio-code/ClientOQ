@@ -14,19 +14,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch SMTP settings from Platform Settings
+    const serviceId = process.env.EMAILJS_SERVICE_ID;
+    const templateId = process.env.EMAILJS_TEMPLATE_ID;
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+    const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+    // 1. Try EmailJS first if configured
+    if (serviceId && templateId && publicKey) {
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          ...(privateKey ? { accessToken: privateKey } : {}),
+          template_params: {
+            from_name: name,
+            from_email: email,
+            org_name: org || 'N/A',
+            message: message,
+            to_email: 'codecreststudion@gmail.com',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`EmailJS failed: ${errorText}`);
+      }
+
+      return NextResponse.json({ success: true, message: 'Message sent via EmailJS.' });
+    }
+
+    // 2. Fallback to SMTP/Nodemailer
     const settings = await prisma.platformSettings.findUnique({
       where: { id: 'default' },
     });
 
     if (!settings || !settings.smtpHost || !settings.smtpUser || !settings.smtpPass) {
       return NextResponse.json(
-        { error: 'SMTP settings are not configured in the platform.' },
+        { error: 'Mailer is not configured. Please define EmailJS environment variables or configure SMTP settings in the dashboard.' },
         { status: 500 }
       );
     }
 
-    // Create a Nodemailer transporter using the SMTP settings
     const transporter = nodemailer.createTransport({
       host: settings.smtpHost,
       port: settings.smtpPort || 587,
@@ -65,7 +99,7 @@ ${message}
       `,
     });
 
-    return NextResponse.json({ success: true, message: 'Message sent successfully.' });
+    return NextResponse.json({ success: true, message: 'Message sent via SMTP.' });
   } catch (error: any) {
     console.error('Contact form email error:', error);
     return NextResponse.json(
