@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const inviteLink = `http://localhost:3000/?auth=register&inviteToken=${token}`;
+    const origin = req.nextUrl.origin || 'http://localhost:3000';
+    const inviteLink = `${origin}/?auth=register&inviteToken=${token}`;
     console.log(`[Email Mock Service] Sending invite email to ${email} with link: ${inviteLink}`);
 
     return ok({

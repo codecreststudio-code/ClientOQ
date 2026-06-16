@@ -5268,7 +5268,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                                       <input
                                         type="text"
                                         readOnly
-                                        value={`http://localhost:3000/?auth=register&inviteToken=${inv.token}`}
+                                        value={`${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/?auth=register&inviteToken=${inv.token}`}
                                         className="bg-canvas border border-hairline p-1 rounded text-[10px] text-mute w-48 font-mono select-all focus:outline-none"
                                         onClick={(e) => (e.target as any).select()}
                                       />

@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
+    "dev": "turbo run dev --filter=@clientoq/web",
+    "build": "turbo run build --filter=@clientoq/web",
+    "lint": "turbo run lint --filter=@clientoq/web",
+    "test": "turbo run test --filter=@clientoq/web"
   },
   "devDependencies": {
     "prisma": "^5.10.0",

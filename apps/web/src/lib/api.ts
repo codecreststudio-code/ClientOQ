@@ -224,8 +224,9 @@ function handleMockFallback(path: string, options: RequestInit) {
       status: 'Pending',
       expiresAt: new Date(Date.now() + 7 * 86400000).toISOString()
     };
-    console.log(`[MOCK INVITE] Link: http://localhost:3000/?auth=register&inviteToken=${newInvite.token}`);
-    return { invite: { ...newInvite, inviteLink: `http://localhost:3000/?auth=register&inviteToken=${newInvite.token}` } };
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    console.log(`[MOCK INVITE] Link: ${origin}/?auth=register&inviteToken=${newInvite.token}`);
+    return { invite: { ...newInvite, inviteLink: `${origin}/?auth=register&inviteToken=${newInvite.token}` } };
   }
 
   if (path === '/api/auth/invites/list') {

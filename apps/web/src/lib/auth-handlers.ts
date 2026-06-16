@@ -17,7 +17,9 @@ export function verifyToken(token: string) {
 
 export async function handleLogin(body: any) {
   const { email, password } = body;
-  const user = await prisma.user.findUnique({
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
+
+  let user = await prisma.user.findUnique({
     where: { email },
     include: { organization: true }
   });
@@ -25,6 +27,15 @@ export async function handleLogin(body: any) {
   if (!user) throw new Error('Invalid credentials');
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) throw new Error('Invalid credentials');
+
+  // Promote to SuperAdmin if logging in with email+password
+  if (isSuperAdmin && user.role !== 'SuperAdmin') {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { role: 'SuperAdmin' },
+      include: { organization: true }
+    });
+  }
 
   const token = signToken({ sub: user.id, email: user.email, orgId: user.organizationId, role: user.role });
 
@@ -40,28 +51,37 @@ export async function handleLogin(body: any) {
 
 export async function handleRegister(body: any) {
   const { orgName, firstName, lastName, email, password } = body;
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new Error('Email already registered');
 
-  const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now();
-  const org = await prisma.organization.create({ data: { name: orgName, slug } });
+  let orgId: string | null = null;
+  let orgNameVal: string | null = null;
+
+  if (!isSuperAdmin) {
+    const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now();
+    const org = await prisma.organization.create({ data: { name: orgName, slug } });
+    orgId = org.id;
+    orgNameVal = org.name;
+  }
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: {
-      organizationId: org.id, firstName, lastName, email, passwordHash,
-      role: 'Owner', status: 'Active', isEmailVerified: true
+      organizationId: orgId, firstName, lastName, email, passwordHash,
+      role: isSuperAdmin ? 'SuperAdmin' : 'Owner', status: 'Active', isEmailVerified: true
     }
   });
 
-  const token = signToken({ sub: user.id, email: user.email, orgId: org.id, role: user.role });
+  const token = signToken({ sub: user.id, email: user.email, orgId: orgId, role: user.role });
 
   return {
     token,
     user: {
       id: user.id, firstName: user.firstName, lastName: user.lastName,
-      email: user.email, role: user.role, organizationId: org.id,
-      organizationName: org.name, isEmailVerified: true
+      email: user.email, role: user.role, organizationId: orgId,
+      organizationName: orgNameVal, isEmailVerified: true
     }
   };
 }
