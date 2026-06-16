@@ -24,7 +24,7 @@ export default function middleware(req: NextRequest) {
   hostname = hostname.split(':')[0];
 
   // Define allowed core domains that should NOT be treated as subdomains
-  const allowedDomains = ['localhost', 'clientoq.com', 'www.clientoq.com'];
+  const allowedDomains = ['localhost', 'clientoq.com', 'www.clientoq.com', 'client-oq.vercel.app'];
 
   // Check if it's a subdomain
   if (!allowedDomains.includes(hostname)) {
