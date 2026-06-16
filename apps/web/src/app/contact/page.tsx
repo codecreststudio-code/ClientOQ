@@ -7,12 +7,35 @@ import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', org: '', message: '' });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setForm({ name: '', email: '', org: '', message: '' });
-    setSubmitted(true);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Something went wrong');
+      }
+
+      setForm({ name: '', email: '', org: '', message: '' });
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send message');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,11 +162,16 @@ export default function ContactPage() {
                   ></textarea>
                 </div>
 
+                {error && (
+                  <p className="text-red-500 text-xs font-semibold">{error}</p>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={loading}
+                  className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  Send Message <Send size={12} />
+                  {loading ? 'Sending...' : 'Send Message'} <Send size={12} />
                 </button>
               </form>
             )}

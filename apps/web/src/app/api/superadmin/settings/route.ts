@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
           supportEmail: 'support@clientoq.com',
           allowRegistration: true,
           maintenanceMode: false,
-          stripePort: 587, // just in case
+          smtpPort: 587, // just in case
         } as any,
       });
     }
