@@ -32,6 +32,15 @@ export function requireAuth(req: NextRequest): { user: AuthUser } | { error: Nex
   if (!user) {
     return { error: NextResponse.json({ message: 'Unauthorized' }, { status: 401 }) };
   }
+
+  // Impersonation support for SuperAdmin
+  if (user.role === 'SuperAdmin') {
+    const impersonated = req.headers.get('x-impersonate-org');
+    if (impersonated) {
+      user.orgId = impersonated;
+    }
+  }
+
   return { user };
 }
 

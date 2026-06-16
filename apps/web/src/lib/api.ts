@@ -109,6 +109,13 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  if (!isServer) {
+    const impersonateOrg = localStorage.getItem('clientoq_impersonate_org');
+    if (impersonateOrg) {
+      headers['x-impersonate-org'] = impersonateOrg;
+    }
+  }
+
   const mergedOptions = {
     credentials: 'include' as const,
     ...options,
@@ -1055,5 +1062,11 @@ export const api = {
     list: () => apiFetch('/api/notifications'),
     read: (id: string) => apiFetch(`/api/notifications/${id}/read`, { method: 'PUT' }),
     delete: (id: string) => apiFetch(`/api/notifications/${id}`, { method: 'DELETE' })
+  },
+
+  // SuperAdmin Platform Management
+  superadmin: {
+    getPlatformData: () => apiFetch('/api/superadmin/organizations'),
+    updateOrganization: (body: { id: string; plan?: string; status?: string }) => apiFetch('/api/superadmin/organizations', { method: 'PATCH', body: JSON.stringify(body) })
   }
 };

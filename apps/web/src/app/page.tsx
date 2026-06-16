@@ -102,6 +102,12 @@ export default function Home() {
   const [orgUsersList, setOrgUsersList] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<any>(null);
 
+  // SuperAdmin Impersonation & View States
+  const [adminView, setAdminView] = useState<'platform' | 'workspace'>('platform');
+  const [impersonatedOrgId, setImpersonatedOrgId] = useState<string | null>(null);
+  const [impersonatedOrgName, setImpersonatedOrgName] = useState<string | null>(null);
+  const [platformData, setPlatformData] = useState<any>(null);
+
   // CRM Module State
   const [leads, setLeads] = useState<any[]>([]);
   const [selectedLead, setSelectedLead] = useState<any>(null);
@@ -330,6 +336,17 @@ export default function Home() {
       if (parsedUser.notificationPreferences) {
         setProfileNotificationPref(parsedUser.notificationPreferences);
       }
+      
+      // Load SuperAdmin Impersonation settings
+      if (parsedUser.role === 'SuperAdmin') {
+        const impOrgId = localStorage.getItem('clientoq_impersonate_org');
+        const impOrgName = localStorage.getItem('clientoq_impersonate_org_name');
+        const impView = localStorage.getItem('clientoq_admin_view');
+        if (impOrgId) setImpersonatedOrgId(impOrgId);
+        if (impOrgName) setImpersonatedOrgName(impOrgName);
+        if (impView === 'workspace') setAdminView('workspace');
+      }
+
       // Fetch latest profile details from DB
       api.auth.me()
         .then(data => {
@@ -439,11 +456,11 @@ export default function Home() {
     }
   }, [selectedLead]);
 
-  // Fetch Data on Tab Switch or Auth
+  // Fetch Data on Tab Switch, Auth, or Admin View Switch
   useEffect(() => {
     if (!user) return;
     refreshData();
-  }, [user, activeTab]);
+  }, [user, activeTab, adminView]);
 
   // Scroll to bottom on chats
   useEffect(() => {
@@ -457,7 +474,12 @@ export default function Home() {
   const refreshData = async () => {
     setDataLoading(true);
     try {
-      if (activeTab === 'dashboard') {
+      if (user?.role === 'SuperAdmin' && adminView === 'platform') {
+        const data = await api.superadmin.getPlatformData().catch(() => null);
+        if (data) {
+          setPlatformData(data);
+        }
+      } else if (activeTab === 'dashboard') {
         const data = await api.analytics.getDashboardData();
         setDashboardData(data);
       } else if (activeTab === 'crm') {
@@ -561,7 +583,37 @@ export default function Home() {
     }
   };
 
+  const handleImpersonate = (orgId: string, orgName: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clientoq_impersonate_org', orgId);
+      localStorage.setItem('clientoq_impersonate_org_name', orgName);
+      localStorage.setItem('clientoq_admin_view', 'workspace');
+    }
+    setImpersonatedOrgId(orgId);
+    setImpersonatedOrgName(orgName);
+    setAdminView('workspace');
+  };
+
+  const handleExitImpersonation = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clientoq_impersonate_org');
+      localStorage.removeItem('clientoq_impersonate_org_name');
+      localStorage.setItem('clientoq_admin_view', 'platform');
+    }
+    setImpersonatedOrgId(null);
+    setImpersonatedOrgName(null);
+    setAdminView('platform');
+  };
+
   const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clientoq_impersonate_org');
+      localStorage.removeItem('clientoq_impersonate_org_name');
+      localStorage.removeItem('clientoq_admin_view');
+    }
+    setImpersonatedOrgId(null);
+    setImpersonatedOrgName(null);
+    setAdminView('platform');
     api.auth.logout();
     setUser(null);
   };
@@ -1782,7 +1834,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
       ) : (
         
         /* 2. CORE WORKSPACE */
-        user?.role === 'SuperAdmin' ? (
+        user?.role === 'SuperAdmin' && adminView === 'platform' ? (
           /* ── SUPERADMIN PLATFORM DASHBOARD ── */
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* SuperAdmin Top Bar */}
@@ -1797,8 +1849,17 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
               <div className="flex items-center gap-4">
                 <span className="text-mute text-xs font-mono">{user?.email}</span>
                 <button
+                  onClick={() => {
+                    localStorage.setItem('clientoq_admin_view', 'workspace');
+                    setAdminView('workspace');
+                  }}
+                  className="text-primary hover:text-on-primary hover:bg-primary text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded border border-primary/40 transition-all cursor-pointer"
+                >
+                  Workspace Mode ➔
+                </button>
+                <button
                   onClick={handleLogout}
-                  className="text-mute hover:text-primary text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 border border-mute/20 hover:border-primary/40 px-3 py-1.5 rounded transition-all"
+                  className="text-mute hover:text-primary text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 border border-mute/20 hover:border-primary/40 px-3 py-1.5 rounded transition-all"
                 >
                   <LogOut size={12} /> Logout
                 </button>
@@ -1816,9 +1877,9 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                 {/* Platform KPIs */}
                 <div className="grid grid-cols-4 gap-4 mb-8">
                   {[
-                    { label: 'Total Organizations', value: '24', change: '+3 this month', icon: '🏢' },
-                    { label: 'Active Users', value: '187', change: '+12 this week', icon: '👥' },
-                    { label: 'Platform MRR', value: '₹3,84,000', change: '+18% growth', icon: '💰' },
+                    { label: 'Total Organizations', value: platformData?.kpis?.totalOrganizations ?? '24', change: '+3 this month', icon: '🏢' },
+                    { label: 'Active Users', value: platformData?.kpis?.activeUsers ?? '187', change: '+12 this week', icon: '👥' },
+                    { label: 'Platform MRR', value: platformData?.kpis?.platformMRR ?? '₹3,84,000', change: '+18% growth', icon: '💰' },
                     { label: 'Avg. Session Time', value: '42 min', change: 'Per active user', icon: '⏱️' },
                   ].map((kpi, i) => (
                     <div key={i} className="bg-canvas border border-hairline rounded-md p-5 hover:border-primary/30 transition-colors">
@@ -1834,7 +1895,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                 <div className="bg-canvas border border-hairline rounded-md overflow-hidden mb-6">
                   <div className="border-b border-hairline px-6 py-4 flex items-center justify-between">
                     <h2 className="font-bold text-ink text-sm uppercase tracking-wider font-mono">All Organizations</h2>
-                    <span className="text-mute text-xs font-mono">24 tenants</span>
+                    <span className="text-mute text-xs font-mono">{platformData?.kpis?.totalOrganizations ?? 24} tenants</span>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
@@ -1848,19 +1909,19 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
-                        { name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
-                        { name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
-                        { name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
-                        { name: 'SkyLine Consultants', plan: 'Premium', users: 12, mrr: '₹1,999', status: 'Active', joined: '2024-11' },
-                        { name: 'Apex Creative Co.', plan: 'Free', users: 2, mrr: '₹0', status: 'Suspended', joined: '2025-09' },
-                      ].map((org, i) => (
-                        <tr key={i} className="border-b border-hairline/50 hover:bg-canvas-soft/50 transition-colors">
+                      {(platformData?.organizations ?? [
+                        { id: 'mock-1', name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
+                        { id: 'mock-2', name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
+                        { id: 'mock-3', name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
+                        { id: 'mock-4', name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
+                        { id: 'mock-5', name: 'SkyLine Consultants', plan: 'Premium', users: 12, mrr: '₹1,999', status: 'Active', joined: '2024-11' },
+                        { id: 'mock-6', name: 'Apex Creative Co.', plan: 'Free', users: 2, mrr: '₹0', status: 'Suspended', joined: '2025-09' },
+                      ]).map((org: any, i: number) => (
+                        <tr key={org.id || i} className="border-b border-hairline/50 hover:bg-canvas-soft/50 transition-colors">
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2">
                               <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs font-mono">
-                                {org.name[0]}
+                                {org.name ? org.name[0] : 'O'}
                               </div>
                               <div>
                                 <div className="font-semibold text-ink text-xs">{org.name}</div>
@@ -1869,23 +1930,54 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                             </div>
                           </td>
                           <td className="px-6 py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
-                              org.plan === 'Premium' ? 'bg-primary/10 text-ink border border-primary/30' :
-                              org.plan === 'Standard' ? 'bg-canvas-soft text-body-text border border-hairline' :
-                              'bg-canvas-soft text-mute border border-hairline'
-                            }`}>{org.plan}</span>
+                            <select
+                              value={org.plan}
+                              onChange={async (e) => {
+                                const newPlan = e.target.value;
+                                try {
+                                  await api.superadmin.updateOrganization({ id: org.id, plan: newPlan });
+                                  refreshData();
+                                } catch (err: any) {
+                                  alert(`Error: ${err.message}`);
+                                }
+                              }}
+                              className="bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 text-ink focus:outline-none"
+                            >
+                              <option value="Free">Free</option>
+                              <option value="Standard">Standard</option>
+                              <option value="Premium">Premium</option>
+                            </select>
                           </td>
                           <td className="px-6 py-3 text-xs font-mono text-body-text">{org.users}</td>
                           <td className="px-6 py-3 text-xs font-mono font-semibold text-ink">{org.mrr}</td>
                           <td className="px-6 py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
-                              org.status === 'Active' ? 'bg-positive/10 text-positive border border-positive/20' :
-                              org.status === 'Trial' ? 'bg-warning/10 text-warning-content border border-warning/20' :
-                              'bg-negative-bg/20 text-negative border border-negative/20'
-                            }`}>{org.status}</span>
+                            <select
+                              value={org.status}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value;
+                                try {
+                                  await api.superadmin.updateOrganization({ id: org.id, status: newStatus });
+                                  refreshData();
+                                } catch (err: any) {
+                                  alert(`Error: ${err.message}`);
+                                }
+                              }}
+                              className={`bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 focus:outline-none ${
+                                org.status === 'Active' ? 'text-positive border-positive/30' :
+                                org.status === 'Trial' ? 'text-warning-content border-warning/30' :
+                                'text-negative border-negative/30'
+                              }`}
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Trial">Trial</option>
+                              <option value="Suspended">Suspended</option>
+                            </select>
                           </td>
                           <td className="px-6 py-3">
-                            <button className="text-primary text-[10px] font-mono uppercase tracking-wider hover:underline border border-primary/20 hover:border-primary/50 px-2 py-1 rounded transition-all">
+                            <button
+                              onClick={() => handleImpersonate(org.id, org.name)}
+                              className="text-primary text-[10px] font-mono uppercase tracking-wider hover:bg-primary hover:text-on-primary border border-primary/20 hover:border-primary/50 px-2 py-1 rounded transition-all cursor-pointer"
+                            >
                               Impersonate
                             </button>
                           </td>
@@ -1900,7 +1992,11 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                   <div className="bg-canvas border border-hairline rounded-md p-5">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Subscription Breakdown</h3>
                     <div className="space-y-3">
-                      {[{ label: 'Premium', count: 8, color: 'bg-primary' }, { label: 'Standard', count: 11, color: 'bg-positive' }, { label: 'Free / Trial', count: 5, color: 'bg-canvas-soft border border-hairline' }].map((s, i) => (
+                      {[
+                        { label: 'Premium', count: platformData?.kpis?.premiumCount ?? 8, color: 'bg-primary' },
+                        { label: 'Standard', count: platformData?.kpis?.standardCount ?? 11, color: 'bg-positive' },
+                        { label: 'Free / Trial', count: platformData?.kpis?.freeCount ?? 5, color: 'bg-canvas-soft border border-hairline' }
+                      ].map((s, i) => (
                         <div key={i} className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-sm ${s.color}`}></div>
                           <span className="text-xs text-body-text flex-1">{s.label}</span>
@@ -1913,7 +2009,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                     <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Platform Events (24h)</h3>
                     <div className="space-y-2">
                       {[
-                        { event: 'New org registered', count: 2 },
+                        { event: 'New org registered', count: platformData?.kpis?.newRegCount ?? 2 },
                         { event: 'Google OAuth logins', count: 34 },
                         { event: 'Invoices created', count: 18 },
                         { event: 'API requests', count: '12.4K' },
@@ -1960,6 +2056,30 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
 
             {/* Nav Menu */}
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {user && user.role === 'SuperAdmin' && (
+                <div className="mb-4 pb-4 border-b border-hairline/50 shrink-0">
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('clientoq_admin_view', 'platform');
+                      setAdminView('platform');
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary/15 border border-primary/20 hover:border-primary/40 text-primary font-bold font-mono text-[10px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
+                  >
+                    ⚡ Platform Control Center
+                  </button>
+                  {impersonatedOrgId ? (
+                    <div className="mt-2 text-center text-[9px] text-mute font-mono bg-canvas-soft p-2 rounded-xs border border-hairline/30">
+                      Impersonating:<br/>
+                      <span className="text-ink font-bold block mt-0.5 truncate">{impersonatedOrgName}</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-center text-[9px] text-mute font-mono bg-canvas-soft p-1.5 rounded-xs border border-hairline/25">
+                      SuperAdmin Mode
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={() => setActiveTab('dashboard')}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all duration-150 ${activeTab === 'dashboard' ? 'bg-primary text-on-primary font-medium' : 'text-body-text hover:bg-canvas-soft hover:text-ink'}`}
@@ -2109,6 +2229,43 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                   className="px-2.5 py-1 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-semibold rounded-sm transition-colors text-[10px] uppercase tracking-wider"
                 >
                   Resend Verification
+                </button>
+              </div>
+            )}
+
+            {user && user.role === 'SuperAdmin' && impersonatedOrgId && (
+              <div className="bg-primary/20 border-b border-primary/30 px-8 py-3 flex items-center justify-between text-xs text-ink font-mono shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+                  <span className="font-semibold text-primary uppercase text-[10px]">Impersonating Tenant:</span>
+                  <span className="font-bold text-ink underline">{impersonatedOrgName}</span>
+                  <span className="text-mute">(All actions will run against this organization's database scope)</span>
+                </div>
+                <button
+                  onClick={handleExitImpersonation}
+                  className="px-3 py-1.5 bg-primary hover:opacity-95 text-on-primary font-bold rounded-sm text-[9px] uppercase tracking-widest cursor-pointer transition-opacity"
+                >
+                  Exit Impersonation
+                </button>
+              </div>
+            )}
+
+            {user && user.role === 'SuperAdmin' && !impersonatedOrgId && (
+              <div className="bg-canvas-soft border-b border-hairline px-8 py-3 flex items-center justify-between text-xs text-ink font-mono shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-mute rounded-full"></span>
+                  <span className="font-semibold text-mute uppercase text-[10px]">SuperAdmin View:</span>
+                  <span className="text-ink font-bold">Standard Workspace Mode</span>
+                  <span className="text-mute">(Viewing default platform database scope. Use impersonation to view specific tenants.)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('clientoq_admin_view', 'platform');
+                    setAdminView('platform');
+                  }}
+                  className="px-3 py-1.5 border border-hairline text-ink hover:bg-canvas font-bold rounded-sm text-[9px] uppercase tracking-widest cursor-pointer transition-all"
+                >
+                  Go back to Platform Center
                 </button>
               </div>
             )}
