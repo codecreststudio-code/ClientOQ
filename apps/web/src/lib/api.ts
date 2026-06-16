@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// In production on Vercel, API routes are hosted on the same Next.js origin.
+// In development, we use the local NestJS API on port 3001.
+const API_URL = (typeof window !== 'undefined' && process.env.NODE_ENV === 'production')
+  ? ''
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
 
 // In-memory fallback database for frontend-only demo mode
 let localLeads = [

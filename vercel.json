@@ -1,6 +1,6 @@
 {
-  "buildCommand": "turbo run build --filter=@clientoq/web",
-  "outputDirectory": "apps/web/.next",
+  "buildCommand": "prisma generate --schema=../../prisma/schema.prisma && next build",
+  "outputDirectory": ".next",
   "installCommand": "pnpm install",
   "framework": "nextjs"
 }
