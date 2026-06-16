@@ -18,12 +18,12 @@ export default function Header({ onLaunchConsole }: HeaderProps) {
   return (
     <header className="w-full border-b border-hairline bg-canvas h-16 flex items-center justify-between px-8 z-30 sticky top-0 select-none">
       <a href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-        <div className="w-7 h-7 rounded bg-orange-500 flex items-center justify-center font-bold text-white text-md font-sans shadow-sm select-none">
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-white text-sm font-sans shadow-sm select-none">
           Q
         </div>
         <span className="font-bold tracking-tight text-sm uppercase font-mono text-ink">Clientoq</span>
       </a>
-      <nav className="hidden md:flex items-center gap-8 text-xs font-mono text-mute">
+      <nav className="hidden md:flex items-center gap-8 text-xs font-sans font-semibold text-body-text tracking-tight">
         <a href="/features" className="hover:text-primary transition-colors">Features</a>
         <a href="/how-it-works" className="hover:text-primary transition-colors">How it works</a>
         <a href="/pricing" className="hover:text-primary transition-colors">Pricing</a>
@@ -32,7 +32,7 @@ export default function Header({ onLaunchConsole }: HeaderProps) {
       <div>
         <button
           onClick={handleLaunchClick}
-          className="bg-primary hover:opacity-90 text-on-primary text-xs font-semibold px-4 py-2 rounded-sm font-mono uppercase tracking-wider transition-all cursor-pointer"
+          className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-2.5 rounded-full font-sans uppercase tracking-wider transition-all cursor-pointer shadow-sm"
         >
           Launch Console
         </button>

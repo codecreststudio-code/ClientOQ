@@ -1542,7 +1542,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
               </p>
               <a
                 href="/"
-                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-sm font-mono uppercase tracking-widest transition-all"
+                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95"
               >
                 Return to Platform
               </a>
@@ -1557,25 +1557,25 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
             <div className="border border-hairline bg-canvas-soft text-mute font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full">
               [ STATUS: STABLE DEVELOPMENT V2.0 ]
             </div>
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-ink leading-tight">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
               The Quietly Confident <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-mute to-body-text">
                 Business Canvas for Agencies.
               </span>
             </h1>
-            <p className="text-body-text text-sm md:text-base max-w-2xl font-serif italic mt-2">
+            <p className="text-body-text text-sm md:text-base max-w-2xl font-sans mt-2">
               Run your CRM pipelines, active sprints, automated WhatsApp outreach, and multi-currency billing in a single warm-charcoal workspace. Zero fluff, absolute control.
             </p>
             <div className="flex items-center gap-4 mt-6">
               <button
                 onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-sm font-mono uppercase tracking-widest transition-all"
+                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95 shadow-sm"
               >
                 Start Free Trial
               </button>
               <a
                 href="#sandbox"
-                className="border border-hairline hover:bg-canvas-soft text-ink text-xs font-bold px-6 py-3 rounded-sm font-mono uppercase tracking-widest transition-all"
+                className="border border-hairline hover:bg-canvas-soft text-ink text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95"
               >
                 Explore Sandbox
               </a>
@@ -1725,7 +1725,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
               <div className="border-t border-hairline bg-canvas p-4 text-center">
                 <button
                   onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                  className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-6 py-2.5 rounded-sm uppercase tracking-widest font-mono"
+                  className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-6 py-2.5 rounded-full uppercase tracking-widest font-sans active:scale-95 shadow-sm"
                 >
                   Create Your Custom Console
                 </button>

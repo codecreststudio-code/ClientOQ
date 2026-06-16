@@ -1,48 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #f7f5f0;
-  --color-on-primary: #2b2622;
-  --color-ink: #f7f5f0;
-  --color-body-text: #c9c0ad;
-  --color-body-strong: #dad2c1;
-  --color-mute: #aea69c;
-  --color-canvas: #2b2622;
-  --color-canvas-soft: #383330;
-  --color-hairline: #3f3a36;
+  --color-primary: #00754A; /* Starbucks Green Accent */
+  --color-on-primary: #ffffff;
+  --color-ink: rgba(0, 0, 0, 0.87); /* Starbucks Text Black */
+  --color-body-text: rgba(0, 0, 0, 0.58); /* Starbucks Text Black Soft */
+  --color-body-strong: rgba(0, 0, 0, 0.87);
+  --color-mute: rgba(0, 0, 0, 0.38);
+  --color-canvas: #f2f0eb; /* Starbucks Neutral Warm */
+  --color-canvas-soft: #edebe9; /* Starbucks Ceramic */
+  --color-hairline: rgba(0, 0, 0, 0.08); /* Whisper-soft border */
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "DM Mono", monospace;
-  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-serif: "Lora", Georgia, serif;
 
   --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 50px;
 }
 
 body {
-  background-color: #2b2622;
-  color: #f7f5f0;
-  font-family: "Inter", system-ui, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  letter-spacing: -0.16px; /* Universal Starbucks Tracking */
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Starbucks Minimalist Style */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #2b2622;
+  background: var(--color-canvas);
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3a36;
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #aea69c;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 @keyframes shimmer {
@@ -57,10 +59,35 @@ body {
 .animate-shimmer {
   background: linear-gradient(
     90deg,
-    #383330 25%,
-    #4a4542 37%,
-    #383330 63%
+    #edebe9 25%,
+    #f2f0eb 37%,
+    #edebe9 63%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
 }
+
+/* Global utility classes for Starbucks theme styling */
+.starbucks-heading-serif {
+  font-family: var(--font-serif);
+  letter-spacing: -0.16px;
+}
+
+/* Universal Button click scale animation */
+button, .btn-pill {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+button:active:not(:disabled), .btn-pill:active:not(:disabled) {
+  transform: scale(0.95) !important;
+}
+
+/* Dual shadow stack helper as described in DESIGN.md */
+.starbucks-shadow {
+  box-shadow: 0px 0px 0.5px 0px rgba(0,0,0,0.14), 0px 1px 1px 0px rgba(0,0,0,0.24);
+}
+
+/* Frap button shadow stack (order button) */
+.frap-shadow {
+  box-shadow: 0px 0px 6px 0px rgba(0,0,0,0.24), 0px 8px 12px 0px rgba(0,0,0,0.14);
+}
+

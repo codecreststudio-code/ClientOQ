@@ -43,11 +43,11 @@ export default function ContactPage() {
       <Header />
       <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
         <div className="flex flex-col gap-4 text-center max-w-2xl mx-auto">
-          <span className="text-[10px] font-mono uppercase text-primary tracking-widest">[ Contact Support ]</span>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight">
+          <span className="text-[10px] font-semibold text-primary tracking-widest">[ Contact Support ]</span>
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
             Connect With Our Team
           </h1>
-          <p className="text-body-text text-sm font-serif italic">
+          <p className="text-body-text text-sm font-sans">
             Have questions about custom migrations, invoice automation APIs, or multi-tenant structures? We are here to assist.
           </p>
         </div>
@@ -55,11 +55,11 @@ export default function ContactPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mt-6 items-start">
           {/* Info Details Column */}
           <div className="md:col-span-5 space-y-6">
-            <div className="bg-canvas-soft border border-hairline p-6 rounded-md space-y-6">
+            <div className="bg-canvas-soft border border-hairline p-6 rounded-lg space-y-6 starbucks-shadow">
               <span className="block text-[10px] uppercase font-mono tracking-wider text-mute font-semibold">Contact Info</span>
               
               <div className="flex items-center gap-4 text-xs font-sans">
-                <div className="w-8 h-8 rounded bg-orange-950/40 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                <div className="w-8 h-8 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                   <Mail size={14} />
                 </div>
                 <div>
@@ -69,7 +69,7 @@ export default function ContactPage() {
               </div>
 
               <div className="flex items-center gap-4 text-xs font-sans">
-                <div className="w-8 h-8 rounded bg-orange-950/40 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                <div className="w-8 h-8 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                   <Phone size={14} />
                 </div>
                 <div>
@@ -79,7 +79,7 @@ export default function ContactPage() {
               </div>
 
               <div className="flex items-center gap-4 text-xs font-sans">
-                <div className="w-8 h-8 rounded bg-orange-950/40 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                <div className="w-8 h-8 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                   <MapPin size={14} />
                 </div>
                 <div>
@@ -95,23 +95,23 @@ export default function ContactPage() {
           {/* Form Column */}
           <div className="md:col-span-7">
             {submitted ? (
-              <div className="bg-canvas-soft border border-green-500/30 p-8 rounded-md text-center flex flex-col items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-green-950/50 flex items-center justify-center text-green-400">
+              <div className="bg-canvas-soft border border-green-500/30 p-8 rounded-lg text-center flex flex-col items-center gap-4 starbucks-shadow">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                   <CheckCircle size={24} />
                 </div>
-                <h3 className="font-mono text-sm uppercase font-bold text-ink">Inquiry Submitted Successfully</h3>
+                <h3 className="font-sans text-sm uppercase font-bold text-ink">Inquiry Submitted Successfully</h3>
                 <p className="text-body-text text-xs font-serif italic max-w-sm">
                   Our operations team has received your message and will respond to your email within 12 business hours.
                 </p>
                 <button 
                   onClick={() => setSubmitted(false)}
-                  className="mt-4 border border-hairline hover:bg-canvas text-ink text-xs font-bold px-6 py-2.5 rounded-sm font-mono uppercase tracking-widest transition-colors cursor-pointer"
+                  className="mt-4 border border-hairline hover:bg-canvas text-ink text-xs font-bold px-6 py-2.5 rounded-full font-sans uppercase tracking-widest transition-colors cursor-pointer active:scale-95"
                 >
                   Submit Another Inquiry
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="bg-canvas-soft border border-hairline p-6 rounded-md space-y-4">
+              <form onSubmit={handleSubmit} className="bg-canvas-soft border border-hairline p-6 rounded-lg space-y-4 starbucks-shadow">
                 <span className="block text-[10px] uppercase font-mono tracking-wider text-mute font-semibold mb-2">Write Us a Message</span>
                 
                 <div>
@@ -119,7 +119,7 @@ export default function ContactPage() {
                   <input
                     type="text"
                     required
-                    className="w-full bg-canvas border border-hairline p-3 rounded-sm text-xs focus:outline-none focus:border-primary text-ink font-sans"
+                    className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
                     placeholder="e.g. clientoq"
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
@@ -132,7 +132,7 @@ export default function ContactPage() {
                     <input
                       type="email"
                       required
-                      className="w-full bg-canvas border border-hairline p-3 rounded-sm text-xs focus:outline-none focus:border-primary text-ink font-sans"
+                      className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
                       placeholder="e.g. hi@clientoq.com"
                       value={form.email}
                       onChange={e => setForm({ ...form, email: e.target.value })}
@@ -142,7 +142,7 @@ export default function ContactPage() {
                     <label className="block text-[10px] font-semibold text-mute uppercase tracking-wider mb-1 font-mono">Organization / Agency</label>
                     <input
                       type="text"
-                      className="w-full bg-canvas border border-hairline p-3 rounded-sm text-xs focus:outline-none focus:border-primary text-ink font-sans"
+                      className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
                       placeholder="e.g. CodeCrest Studio"
                       value={form.org}
                       onChange={e => setForm({ ...form, org: e.target.value })}
@@ -155,7 +155,7 @@ export default function ContactPage() {
                   <textarea
                     required
                     rows={4}
-                    className="w-full bg-canvas border border-hairline p-3 rounded-sm text-xs focus:outline-none focus:border-primary text-ink font-sans resize-none"
+                    className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans resize-none"
                     placeholder="Describe what you need help with..."
                     value={form.message}
                     onChange={e => setForm({ ...form, message: e.target.value })}
@@ -169,7 +169,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3.5 rounded-full font-sans uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 shadow-sm"
                 >
                   {loading ? 'Sending...' : 'Send Message'} <Send size={12} />
                 </button>

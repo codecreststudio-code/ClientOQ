@@ -32,16 +32,16 @@ export default function JoinWaitlistPage() {
             </p>
             <a 
               href="/" 
-              className="mt-6 border border-hairline hover:bg-canvas text-ink text-xs font-bold px-6 py-3 rounded-sm font-mono uppercase tracking-widest transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              className="mt-6 border border-hairline hover:bg-canvas text-ink text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-colors inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               Back to Home <ArrowRight size={14} />
             </a>
           </div>
         ) : (
-          <div className="bg-canvas-soft border border-hairline p-8 rounded-md flex flex-col gap-6 shadow-2xl">
+          <div className="bg-canvas-soft border border-hairline p-8 rounded-lg flex flex-col gap-6 shadow-2xl">
             <div className="text-center flex flex-col gap-3">
-              <span className="text-[10px] font-mono uppercase text-primary tracking-widest">[ Early Access ]</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink font-mono uppercase">
+              <span className="text-[10px] font-semibold text-primary tracking-widest">[ Early Access ]</span>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink font-serif italic">
                 Join Clientoq Waitlist
               </h1>
               <p className="text-body-text text-xs font-serif italic max-w-sm mx-auto">
@@ -57,14 +57,14 @@ export default function JoinWaitlistPage() {
                   required
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
-                  className="w-full bg-canvas border border-hairline p-3 rounded-sm text-xs focus:outline-none focus:border-primary text-ink font-sans"
+                  className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
                   placeholder="e.g. hello@clientoq.com"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3.5 rounded-sm font-mono uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3.5 rounded-full font-sans uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-sm"
               >
                 Join Waitlist <Send size={12} />
               </button>
