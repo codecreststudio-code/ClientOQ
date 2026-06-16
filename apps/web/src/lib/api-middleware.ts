@@ -53,7 +53,23 @@ export function requireAuth(req: NextRequest): { user: AuthUser } | { error: Nex
   return { user };
 }
 
-export function ok(data: unknown, status = 200) {
+export function requireRole(req: NextRequest, allowedRoles: string[]): { user: AuthUser } | { error: NextResponse } {
+  const auth = requireAuth(req);
+  if ('error' in auth) return auth;
+  
+  // SuperAdmin overrides role checks, except if we want explicit non-SuperAdmin constraints
+  if (auth.user.role === 'SuperAdmin') {
+    return auth;
+  }
+  
+  if (!allowedRoles.includes(auth.user.role)) {
+    return { error: NextResponse.json({ message: `Forbidden — Requires one of roles: ${allowedRoles.join(', ')}` }, { status: 403 }) };
+  }
+  
+  return auth;
+}
+
+export function ok(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
 

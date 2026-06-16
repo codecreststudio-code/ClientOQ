@@ -1132,5 +1132,12 @@ export const api = {
     updateOrganization: (body: { id: string; plan?: string; status?: string }) => apiFetch('/api/superadmin/organizations', { method: 'PATCH', body: JSON.stringify(body) }),
     getSettings: () => apiFetch('/api/superadmin/settings'),
     updateSettings: (body: any) => apiFetch('/api/superadmin/settings', { method: 'PATCH', body: JSON.stringify(body) })
+  },
+
+  // Commerce & Billing (Phase 1)
+  commerce: {
+    getPlans: () => apiFetch('/api/commerce/plans'),
+    createPlan: (body: any) => apiFetch('/api/commerce/plans', { method: 'POST', body: JSON.stringify(body) }),
+    subscribe: (body: { planId: string; clientId: string }) => apiFetch('/api/commerce/subscribe', { method: 'POST', body: JSON.stringify(body) })
   }
 };

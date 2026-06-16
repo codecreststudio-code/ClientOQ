@@ -20,6 +20,10 @@ model Organization {
   subscriptionStatus  String       @default("Active")
   subdomain           String?      @unique
   themeColor          String?
+  razorpayKeyId       String?
+  razorpayKeySecret   String?
+  stripePublishableKey String?
+  stripeSecretKey      String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
@@ -37,6 +41,8 @@ model Organization {
   dailyMetrics        DailyMetrics[]
   auditLogs           AuditLog[]
   userInvites         UserInvite[]
+  subscriptionPlans   SubscriptionPlan[]
+  clientSubscriptions ClientSubscription[]
 }
 
 model User {
@@ -158,6 +164,7 @@ model Client {
   projects       Project[]
   invoices       Invoice[]
   whatsappConversations WhatsAppConversation[]
+  subscriptions  ClientSubscription[]
 }
 
 model ClientContact {
@@ -493,4 +500,36 @@ model PlatformSettings {
   smtpFrom            String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model SubscriptionPlan {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  description     String?
+  price           Float
+  currency        String   @default("USD")
+  interval        String   @default("month") // month, year
+  features        String[]
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  subscriptions   ClientSubscription[]
+}
+
+model ClientSubscription {
+  id              String   @id @default(uuid())
+  organizationId  String
+  clientId        String
+  planId          String
+  status          String   @default("active") // active, canceled, past_due
+  currentPeriodEnd DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }

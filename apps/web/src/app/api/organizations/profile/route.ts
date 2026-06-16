@@ -31,33 +31,45 @@ export async function PATCH(req: NextRequest) {
     return err('Forbidden — Only organization Owners or Managers can configure branding settings', 403);
   }
 
-  try {
-    const body = await req.json();
-    const { name, logoUrl, themeColor, subdomain } = body;
+    try {
+      const body = await req.json();
+      const { name, logoUrl, themeColor, subdomain, website, industry, teamSize, razorpayKeyId, razorpayKeySecret, stripePublishableKey, stripeSecretKey } = body;
 
-    const currentOrg = await prisma.organization.findUnique({
-      where: { id: orgId },
-    });
+      const currentOrg = await prisma.organization.findUnique({
+        where: { id: orgId },
+      });
 
-    if (!currentOrg) {
-      return err('Organization not found', 404);
-    }
+      if (!currentOrg) {
+        return err('Organization not found', 404);
+      }
 
-    const updateData: any = {};
+      const updateData: any = {};
 
-    if (name !== undefined) {
-      updateData.name = name.trim();
-    }
+      if (name !== undefined) {
+        updateData.name = name.trim();
+      }
 
-    if (logoUrl !== undefined) {
-      updateData.logoUrl = logoUrl.trim() || null;
-    }
+      if (website !== undefined) {
+        updateData.website = website ? website.trim() : null;
+      }
 
-    if (themeColor !== undefined) {
-      updateData.themeColor = themeColor.trim() || null;
-    }
+      if (industry !== undefined) {
+        updateData.industry = industry ? industry.trim() : null;
+      }
 
-    if (subdomain !== undefined) {
+      if (teamSize !== undefined) {
+        updateData.teamSize = teamSize ? Number(teamSize) : null;
+      }
+
+      if (logoUrl !== undefined) {
+        updateData.logoUrl = logoUrl.trim() || null;
+      }
+
+      if (themeColor !== undefined) {
+        updateData.themeColor = themeColor.trim() || null;
+      }
+
+      if (subdomain !== undefined) {
       const cleanSubdomain = subdomain.trim().toLowerCase();
 
       if (cleanSubdomain === '') {
@@ -87,6 +99,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+      if (razorpayKeyId !== undefined) updateData.razorpayKeyId = razorpayKeyId;
+      if (razorpayKeySecret !== undefined) updateData.razorpayKeySecret = razorpayKeySecret;
+      if (stripePublishableKey !== undefined) updateData.stripePublishableKey = stripePublishableKey;
+      if (stripeSecretKey !== undefined) updateData.stripeSecretKey = stripeSecretKey;
+
     const updated = await prisma.organization.update({
       where: { id: orgId },
       data: updateData,
@@ -101,6 +118,8 @@ export async function PATCH(req: NextRequest) {
         logoUrl: updated.logoUrl,
         themeColor: updated.themeColor,
         subdomain: updated.subdomain,
+        razorpayKeyId: updated.razorpayKeyId,
+        stripePublishableKey: updated.stripePublishableKey,
       },
     });
   } catch (error: any) {

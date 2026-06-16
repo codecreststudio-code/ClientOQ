@@ -237,9 +237,16 @@ export default function Home() {
 
   // SaaS Powerhouse Features States
   const [whiteLabelSettings, setWhiteLabelSettings] = useState({
-    themeColor: 'indigo',
-    logoUrl: '',
-    customSubdomain: ''
+    logoUrl: '', themeColor: 'indigo', customSubdomain: ''
+  });
+  const [orgProfileSettings, setOrgProfileSettings] = useState({
+    name: '',
+    website: '',
+    industry: '',
+    teamSize: ''
+  });
+  const [paymentIntegrations, setPaymentIntegrations] = useState({
+    razorpayKeyId: '', razorpayKeySecret: '', stripePublishableKey: '', stripeSecretKey: ''
   });
   const [subdomainBranding, setSubdomainBranding] = useState<any>(null);
   const [subdomainNotFound, setSubdomainNotFound] = useState(false);
@@ -465,6 +472,30 @@ export default function Home() {
       setSentryUserContext(user);
     }
   }, [user]);
+
+  // Sync org settings from user state
+  useEffect(() => {
+    if (user && user.organization) {
+      setWhiteLabelSettings(prev => ({
+        ...prev,
+        themeColor: user.organization.themeColor || 'indigo',
+        logoUrl: user.organization.logoUrl || '',
+        customSubdomain: user.organization.subdomain || ''
+      }));
+      setOrgProfileSettings({
+        name: user.organization.name || '',
+        website: user.organization.website || '',
+        industry: user.organization.industry || '',
+        teamSize: user.organization.teamSize?.toString() || ''
+      });
+      setPaymentIntegrations({
+        razorpayKeyId: user.organization.razorpayKeyId || '',
+        razorpayKeySecret: user.organization.razorpayKeySecret || '',
+        stripePublishableKey: user.organization.stripePublishableKey || '',
+        stripeSecretKey: user.organization.stripeSecretKey || '',
+      });
+    }
+  }, [user?.organization]);
 
   // Load notifications
   const fetchNotifications = async () => {
@@ -1398,6 +1429,67 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
       fetchNotifications();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleSaveOrgProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.organizations.updateProfile({
+        name: orgProfileSettings.name,
+        website: orgProfileSettings.website,
+        industry: orgProfileSettings.industry,
+        teamSize: orgProfileSettings.teamSize ? Number(orgProfileSettings.teamSize) : null
+      });
+      alert('Organization profile updated successfully!');
+      
+      if (user && user.organization) {
+        const updatedUser = {
+          ...user,
+          organization: {
+            ...user.organization,
+            name: orgProfileSettings.name,
+            website: orgProfileSettings.website,
+            industry: orgProfileSettings.industry,
+            teamSize: orgProfileSettings.teamSize ? Number(orgProfileSettings.teamSize) : null
+          }
+        };
+        setUser(updatedUser);
+        localStorage.setItem('clientoq_user', JSON.stringify(updatedUser));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating organization profile');
+    }
+  };
+
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.organizations.updateProfile({
+        razorpayKeyId: paymentIntegrations.razorpayKeyId,
+        razorpayKeySecret: paymentIntegrations.razorpayKeySecret,
+        stripePublishableKey: paymentIntegrations.stripePublishableKey,
+        stripeSecretKey: paymentIntegrations.stripeSecretKey,
+      });
+      alert('Payment Integrations updated successfully!');
+      
+      // Update local user state
+      if (user && user.organization) {
+        const updatedUser = {
+          ...user,
+          organization: {
+            ...user.organization,
+            razorpayKeyId: paymentIntegrations.razorpayKeyId,
+            razorpayKeySecret: paymentIntegrations.razorpayKeySecret,
+            stripePublishableKey: paymentIntegrations.stripePublishableKey,
+            stripeSecretKey: paymentIntegrations.stripeSecretKey,
+          }
+        };
+        setUser(updatedUser);
+        localStorage.setItem('clientoq_user', JSON.stringify(updatedUser));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating payment settings');
     }
   };
 
@@ -6020,6 +6112,61 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                         </form>
                       </div>
 
+                      {/* Organization Profile Settings */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">Organization Profile Details</h3>
+                        <form onSubmit={handleSaveOrgProfile} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Company / Organization Name</label>
+                            <input
+                              type="text"
+                              value={orgProfileSettings.name}
+                              onChange={e => setOrgProfileSettings({ ...orgProfileSettings, name: e.target.value })}
+                              placeholder="e.g. Acme Corp"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Website URL</label>
+                            <input
+                              type="text"
+                              value={orgProfileSettings.website}
+                              onChange={e => setOrgProfileSettings({ ...orgProfileSettings, website: e.target.value })}
+                              placeholder="e.g. https://acmecorp.com"
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-mute mb-1">Industry</label>
+                              <input
+                                type="text"
+                                value={orgProfileSettings.industry}
+                                onChange={e => setOrgProfileSettings({ ...orgProfileSettings, industry: e.target.value })}
+                                placeholder="e.g. Technology"
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-mute mb-1">Team Size</label>
+                              <input
+                                type="number"
+                                value={orgProfileSettings.teamSize}
+                                onChange={e => setOrgProfileSettings({ ...orgProfileSettings, teamSize: e.target.value })}
+                                placeholder="e.g. 50"
+                                className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary text-xs font-semibold py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
+                          >
+                            Save Organization Profile
+                          </button>
+                        </form>
+                      </div>
+
                       {/* White-Label Portal Configurations */}
                       <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
                         <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">White-Label Configurations</h3>
@@ -6063,6 +6210,59 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                             className="w-full bg-primary text-on-primary text-xs font-semibold py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
                           >
                             Save Brand Settings
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Payment Gateway Integrations */}
+                      <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                        <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">Payment Integrations</h3>
+                        <form onSubmit={handleSavePaymentSettings} className="space-y-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-mute mb-1">Razorpay Key ID</label>
+                            <input
+                              type="text"
+                              value={paymentIntegrations.razorpayKeyId}
+                              onChange={e => setPaymentIntegrations({ ...paymentIntegrations, razorpayKeyId: e.target.value })}
+                              placeholder="rzp_test_..."
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Razorpay Key Secret</label>
+                            <input
+                              type="password"
+                              value={paymentIntegrations.razorpayKeySecret}
+                              onChange={e => setPaymentIntegrations({ ...paymentIntegrations, razorpayKeySecret: e.target.value })}
+                              placeholder="Enter Razorpay Key Secret..."
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Stripe Publishable Key</label>
+                            <input
+                              type="text"
+                              value={paymentIntegrations.stripePublishableKey}
+                              onChange={e => setPaymentIntegrations({ ...paymentIntegrations, stripePublishableKey: e.target.value })}
+                              placeholder="pk_test_..."
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-mute mb-1">Stripe Secret Key</label>
+                            <input
+                              type="password"
+                              value={paymentIntegrations.stripeSecretKey}
+                              onChange={e => setPaymentIntegrations({ ...paymentIntegrations, stripeSecretKey: e.target.value })}
+                              placeholder="sk_test_..."
+                              className="w-full bg-canvas border border-hairline p-2.5 rounded text-ink text-sm font-sans focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-primary text-on-primary text-xs font-semibold py-2.5 rounded-sm uppercase tracking-widest font-mono hover:opacity-90 transition-opacity"
+                          >
+                            Save Payment Settings
                           </button>
                         </form>
                       </div>

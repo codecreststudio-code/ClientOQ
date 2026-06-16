@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, ok, err } from '@/lib/api-middleware';
+import { requireAuth, requireRole, ok, err } from '@/lib/api-middleware';
 
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuth(req);
+  const auth = requireRole(req, ['Owner', 'Manager']);
   if ('error' in auth) return auth.error;
   const { orgId, sub } = auth.user;
   if (!orgId) return err('No organization', 403);
