@@ -586,7 +586,7 @@ export default function Home() {
     setAuthError('');
     setAuthSuccess('');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/forgot-password`, {
+      const res = await fetch(`/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -607,7 +607,7 @@ export default function Home() {
       return;
     }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/reset-password`, {
+      const res = await fetch(`/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken, newPassword: password })
@@ -870,7 +870,7 @@ export default function Home() {
   const handleExportCSV = async () => {
     try {
       const token = localStorage.getItem('clientoq_jwt');
-      const response = await fetch('http://localhost:3001/api/reports/invoices/csv', {
+      const response = await fetch('/api/reports/invoices/csv', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -892,7 +892,7 @@ export default function Home() {
   const handleExportPDF = async () => {
     try {
       const token = localStorage.getItem('clientoq_jwt');
-      const response = await fetch('http://localhost:3001/api/reports/invoices/pdf', {
+      const response = await fetch('/api/reports/invoices/pdf', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -2089,7 +2089,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('clientoq_jwt');
-                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/resend-verification`, {
+                      const res = await fetch(`/api/auth/resend-verification`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -3657,7 +3657,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                                       <div key={fileObj.id} className="flex justify-between items-center border-b border-hairline/20 pb-1.5 last:border-0 last:pb-0">
                                         <span className="text-ink truncate max-w-[140px]" title={fileObj.fileName}>{fileObj.fileName}</span>
                                         <a
-                                          href={`http://localhost:3001/api/files/${fileObj.id}/download`}
+                                          href={`/api/files/${fileObj.id}/download`}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="text-primary hover:underline font-bold"
@@ -4162,7 +4162,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                         <div className="bg-canvas-soft border border-hairline/60 p-3 rounded space-y-1.5 text-[10px]">
                           <div><span className="text-mute">Webhook Endpoint URL:</span></div>
                           <div className="text-ink select-all break-all bg-canvas px-1 py-0.5 border border-hairline/30 rounded text-[9px]">
-                            http://localhost:3001/api/webhooks/stripe
+                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/stripe` : 'http://localhost:3000/api/webhooks/stripe'}
                           </div>
                           <div><span className="text-mute">Listening events:</span></div>
                           <div className="text-primary font-bold">invoice.payment_succeeded</div>

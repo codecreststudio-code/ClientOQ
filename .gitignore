@@ -58,3 +58,12 @@ service-account*.json
 .claude/
 scratch/
 Plans/
+
+# Uploaded user assets (confidential)
+uploads/
+**/uploads/
+
+# Vercel deployment states
+.vercel/
+**/.vercel/
+
