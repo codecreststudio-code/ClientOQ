@@ -1,5 +1,35 @@
 // In production on Vercel, API routes are hosted on the same Next.js origin.
 // In development, we also use Next.js backend API routes to avoid a separate NestJS process.
+
+export function getTenantSubdomain(): string | null {
+  if (typeof window === 'undefined') return null;
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+
+  if (hostname.endsWith('localhost') || hostname === '127.0.0.1') {
+    if (parts.length > 1 && parts[parts.length - 2] !== '127') {
+      const sub = parts[0];
+      if (sub && sub !== 'www') return sub.toLowerCase();
+    }
+    return null;
+  }
+
+  if (hostname.includes('vercel.app')) {
+    if (parts.length > 3) {
+      const sub = parts[0];
+      if (sub && sub !== 'www') return sub.toLowerCase();
+    }
+    return null;
+  }
+
+  if (parts.length > 2) {
+    const sub = parts.slice(0, -2).join('.');
+    if (sub && sub !== 'www') return sub.toLowerCase();
+  }
+
+  return null;
+}
+
 const API_URL = '';
 
 // In-memory fallback database for frontend-only demo mode
@@ -110,6 +140,10 @@ async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   if (!isServer) {
+    const subdomain = getTenantSubdomain();
+    if (subdomain) {
+      headers['x-tenant-subdomain'] = subdomain;
+    }
     const impersonateOrg = localStorage.getItem('clientoq_impersonate_org');
     if (impersonateOrg) {
       headers['x-impersonate-org'] = impersonateOrg;
@@ -965,6 +999,12 @@ CodeCrest Studio`;
   }
 
 export const api = {
+  // Organizations
+  organizations: {
+    checkSubdomain: (subdomain: string) => apiFetch(`/api/organizations/check-subdomain?subdomain=${encodeURIComponent(subdomain)}`),
+    getPublicBranding: (subdomain: string) => apiFetch(`/api/organizations/public-branding?subdomain=${encodeURIComponent(subdomain)}`),
+    updateProfile: (body: any) => apiFetch('/api/organizations/profile', { method: 'PATCH', body: JSON.stringify(body) })
+  },
   // Auth
   auth: {
     login: (body: any) => apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),

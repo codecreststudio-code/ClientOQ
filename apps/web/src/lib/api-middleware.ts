@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   orgId: string | null;
   role: string;
+  orgSubdomain?: string | null;
 }
 
 export function getToken(req: NextRequest): string | null {
@@ -38,6 +39,14 @@ export function requireAuth(req: NextRequest): { user: AuthUser } | { error: Nex
     const impersonated = req.headers.get('x-impersonate-org');
     if (impersonated) {
       user.orgId = impersonated;
+    }
+  }
+
+  // Tenant subdomain isolation check
+  const tenantSubdomain = req.headers.get('x-tenant-subdomain');
+  if (tenantSubdomain && user.role !== 'SuperAdmin') {
+    if (user.orgSubdomain !== tenantSubdomain.toLowerCase()) {
+      return { error: NextResponse.json({ message: 'Forbidden — You do not have access to this tenant portal' }, { status: 403 }) };
     }
   }
 

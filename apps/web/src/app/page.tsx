@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../lib/api';
+import { api, getTenantSubdomain } from '../lib/api';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { setSentryUserContext } from '@/lib/sentry';
@@ -241,6 +241,9 @@ export default function Home() {
     logoUrl: '',
     customSubdomain: ''
   });
+  const [subdomainBranding, setSubdomainBranding] = useState<any>(null);
+  const [subdomainNotFound, setSubdomainNotFound] = useState(false);
+  const [subdomainLoading, setSubdomainLoading] = useState(false);
   const [projectBoardView, setProjectBoardView] = useState<'kanban' | 'gantt'>('kanban');
   const [showCreateRuleModal, setShowCreateRuleModal] = useState(false);
   const [newRuleForm, setNewRuleForm] = useState({
@@ -344,6 +347,30 @@ export default function Home() {
       if (s) s.remove();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Subdomain detection & branding load
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const subdomain = getTenantSubdomain();
+    if (!subdomain) return;
+    setSubdomainLoading(true);
+    api.organizations.getPublicBranding(subdomain)
+      .then(data => {
+        if (data.found) {
+          setSubdomainBranding(data);
+          setWhiteLabelSettings(prev => ({
+            ...prev,
+            themeColor: data.themeColor || prev.themeColor,
+            logoUrl: data.logoUrl || prev.logoUrl,
+            customSubdomain: subdomain
+          }));
+        } else {
+          setSubdomainNotFound(true);
+        }
+      })
+      .catch(() => setSubdomainNotFound(true))
+      .finally(() => setSubdomainLoading(false));
   }, []);
 
   const aiEndRef = useRef<HTMLDivElement>(null);
@@ -1374,6 +1401,35 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
     }
   };
 
+  const handleSaveBrandSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.organizations.updateProfile({
+        themeColor: whiteLabelSettings.themeColor,
+        logoUrl: whiteLabelSettings.logoUrl,
+        subdomain: whiteLabelSettings.customSubdomain
+      });
+      alert('Brand settings updated successfully!');
+      
+      // Update local user state
+      if (user && user.organization) {
+        const updatedUser = {
+          ...user,
+          organization: {
+            ...user.organization,
+            themeColor: whiteLabelSettings.themeColor,
+            logoUrl: whiteLabelSettings.logoUrl,
+            subdomain: whiteLabelSettings.customSubdomain
+          }
+        };
+        setUser(updatedUser);
+        localStorage.setItem('clientoq_user', JSON.stringify(updatedUser));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to update brand settings');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
       
@@ -1381,8 +1437,28 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
       {!user ? (
         <div className="w-full min-h-screen bg-canvas text-ink flex flex-col font-sans relative selection:bg-primary selection:text-on-primary overflow-x-hidden">
           
-          {/* Landing Page Navigation */}
-          <Header onLaunchConsole={() => { setShowAuthModal(true); setAuthMode('login'); setAuthError(''); }} />
+          {subdomainNotFound ? (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-screen text-center px-8">
+              <div className="border border-hairline bg-canvas-soft text-mute font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full mb-8">
+                [ 404 PORTAL NOT FOUND ]
+              </div>
+              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-ink leading-tight mb-4">
+                Portal Not Found
+              </h1>
+              <p className="text-body-text text-sm md:text-base max-w-xl font-serif italic mb-8">
+                The portal at this address doesn&apos;t exist or may have been removed. Check the address or return to the main platform.
+              </p>
+              <a
+                href="/"
+                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-sm font-mono uppercase tracking-widest transition-all"
+              >
+                Return to Platform
+              </a>
+            </div>
+          ) : (
+            <>
+              {/* Landing Page Navigation */}
+              <Header onLaunchConsole={() => { setShowAuthModal(true); setAuthMode('login'); setAuthError(''); }} />
 
           {/* Hero Section */}
           <section className="py-20 px-8 text-center max-w-4xl mx-auto flex flex-col items-center gap-6 z-10 relative">
@@ -1929,6 +2005,8 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                 )}
               </div>
             </div>
+          )}
+            </>
           )}
 
         </div>
@@ -5945,10 +6023,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                       {/* White-Label Portal Configurations */}
                       <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
                         <h3 className="text-xs font-bold font-mono uppercase tracking-wider mb-4 text-primary font-semibold">White-Label Configurations</h3>
-                        <form onSubmit={(e) => {
-                          e.preventDefault();
-                          alert('White-Label branding applied to Portal View!');
-                        }} className="space-y-4 text-xs font-mono">
+                        <form onSubmit={handleSaveBrandSettings} className="space-y-4 text-xs font-mono">
                           <div>
                             <label className="block text-mute mb-1">Brand Logo URL</label>
                             <input

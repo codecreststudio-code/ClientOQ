@@ -37,14 +37,21 @@ export async function handleLogin(body: any) {
     });
   }
 
-  const token = signToken({ sub: user.id, email: user.email, orgId: user.organizationId, role: user.role });
+  const token = signToken({ sub: user.id, email: user.email, orgId: user.organizationId, role: user.role, orgSubdomain: user.organization?.subdomain || null });
 
   return {
     token,
     user: {
       id: user.id, firstName: user.firstName, lastName: user.lastName,
       email: user.email, role: user.role, organizationId: user.organizationId,
-      organizationName: (user as any).organization?.name || null, isEmailVerified: user.isEmailVerified
+      organizationName: (user as any).organization?.name || null, isEmailVerified: user.isEmailVerified,
+      organization: user.organization ? {
+        id: user.organization.id,
+        name: user.organization.name,
+        logoUrl: user.organization.logoUrl,
+        themeColor: user.organization.themeColor,
+        subdomain: user.organization.subdomain
+      } : null
     }
   };
 }
@@ -74,14 +81,21 @@ export async function handleRegister(body: any) {
     }
   });
 
-  const token = signToken({ sub: user.id, email: user.email, orgId: orgId, role: user.role });
+  const token = signToken({ sub: user.id, email: user.email, orgId: orgId, role: user.role, orgSubdomain: null });
 
   return {
     token,
     user: {
       id: user.id, firstName: user.firstName, lastName: user.lastName,
       email: user.email, role: user.role, organizationId: orgId,
-      organizationName: orgNameVal, isEmailVerified: true
+      organizationName: orgNameVal, isEmailVerified: true,
+      organization: orgId ? {
+        id: orgId,
+        name: orgNameVal,
+        logoUrl: null,
+        themeColor: null,
+        subdomain: null
+      } : null
     }
   };
 }
@@ -131,14 +145,21 @@ export async function handleGoogleLogin(credential: string) {
     });
   }
 
-  const token = signToken({ sub: user.id, email: user.email, orgId: user.organizationId, role: user.role });
+  const token = signToken({ sub: user.id, email: user.email, orgId: user.organizationId, role: user.role, orgSubdomain: user.organization?.subdomain || null });
 
   return {
     token,
     user: {
       id: user.id, firstName: user.firstName, lastName: user.lastName,
       email: user.email, role: user.role, organizationId: user.organizationId,
-      organizationName: user.organization?.name || null, isEmailVerified: true
+      organizationName: user.organization?.name || null, isEmailVerified: true,
+      organization: user.organization ? {
+        id: user.organization.id,
+        name: user.organization.name,
+        logoUrl: user.organization.logoUrl,
+        themeColor: user.organization.themeColor,
+        subdomain: user.organization.subdomain
+      } : null
     }
   };
 }
@@ -153,7 +174,14 @@ export async function handleGetMe(userId: string) {
     id: user.id, firstName: user.firstName, lastName: user.lastName,
     email: user.email, role: user.role, organizationId: user.organizationId,
     organizationName: (user as any).organization?.name || null,
-    isEmailVerified: user.isEmailVerified, phone: user.phone, bio: user.bio, timezone: user.timezone
+    isEmailVerified: user.isEmailVerified, phone: user.phone, bio: user.bio, timezone: user.timezone,
+    organization: user.organization ? {
+      id: user.organization.id,
+      name: user.organization.name,
+      logoUrl: user.organization.logoUrl,
+      themeColor: user.organization.themeColor,
+      subdomain: user.organization.subdomain
+    } : null
   };
 }
 

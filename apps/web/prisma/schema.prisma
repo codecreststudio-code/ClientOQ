@@ -18,6 +18,8 @@ model Organization {
   teamSize            Int?
   subscriptionPlan    String       @default("Free")
   subscriptionStatus  String       @default("Active")
+  subdomain           String?      @unique
+  themeColor          String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
