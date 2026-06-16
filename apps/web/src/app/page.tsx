@@ -104,9 +104,35 @@ export default function Home() {
 
   // SuperAdmin Impersonation & View States
   const [adminView, setAdminView] = useState<'platform' | 'workspace'>('platform');
+  const [adminSubTab, setAdminSubTab] = useState<'dashboard' | 'settings'>('dashboard');
+  const [activeSettingsSection, setActiveSettingsSection] = useState<'general' | 'stripe' | 'integrations' | 'smtp'>('general');
   const [impersonatedOrgId, setImpersonatedOrgId] = useState<string | null>(null);
   const [impersonatedOrgName, setImpersonatedOrgName] = useState<string | null>(null);
   const [platformData, setPlatformData] = useState<any>(null);
+
+  // SuperAdmin Platform Settings State
+  const [platformSettings, setPlatformSettings] = useState({
+    systemName: 'Clientoq',
+    supportEmail: 'support@clientoq.com',
+    allowRegistration: true,
+    maintenanceMode: false,
+    stripeSecretKey: '',
+    stripeWebhookSecret: '',
+    openaiApiKey: '',
+    metaToken: '',
+    metaPhoneId: '',
+    googleClientId: '',
+    googleClientSecret: '',
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpPass: '',
+    smtpFrom: '',
+  });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+  const [settingsError, setSettingsError] = useState('');
 
   // CRM Module State
   const [leads, setLeads] = useState<any[]>([]);
@@ -604,6 +630,81 @@ export default function Home() {
     setImpersonatedOrgName(null);
     setAdminView('platform');
   };
+
+  const loadSettings = async () => {
+    setSettingsLoading(true);
+    setSettingsError('');
+    try {
+      const data = await api.superadmin.getSettings();
+      if (data) {
+        setPlatformSettings({
+          systemName: data.systemName || 'Clientoq',
+          supportEmail: data.supportEmail || 'support@clientoq.com',
+          allowRegistration: data.allowRegistration ?? true,
+          maintenanceMode: data.maintenanceMode ?? false,
+          stripeSecretKey: data.stripeSecretKey || '',
+          stripeWebhookSecret: data.stripeWebhookSecret || '',
+          openaiApiKey: data.openaiApiKey || '',
+          metaToken: data.metaToken || '',
+          metaPhoneId: data.metaPhoneId || '',
+          googleClientId: data.googleClientId || '',
+          googleClientSecret: data.googleClientSecret || '',
+          smtpHost: data.smtpHost || '',
+          smtpPort: data.smtpPort || 587,
+          smtpUser: data.smtpUser || '',
+          smtpPass: data.smtpPass || '',
+          smtpFrom: data.smtpFrom || '',
+        });
+      }
+    } catch (err: any) {
+      setSettingsError(err.message || 'Failed to load platform settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSaving(true);
+    setSettingsSuccess('');
+    setSettingsError('');
+    try {
+      const res = await api.superadmin.updateSettings(platformSettings);
+      if (res.success) {
+        setSettingsSuccess('Platform settings updated successfully! 🚀');
+        if (res.settings) {
+          setPlatformSettings({
+            systemName: res.settings.systemName || 'Clientoq',
+            supportEmail: res.settings.supportEmail || 'support@clientoq.com',
+            allowRegistration: res.settings.allowRegistration ?? true,
+            maintenanceMode: res.settings.maintenanceMode ?? false,
+            stripeSecretKey: res.settings.stripeSecretKey || '',
+            stripeWebhookSecret: res.settings.stripeWebhookSecret || '',
+            openaiApiKey: res.settings.openaiApiKey || '',
+            metaToken: res.settings.metaToken || '',
+            metaPhoneId: res.settings.metaPhoneId || '',
+            googleClientId: res.settings.googleClientId || '',
+            googleClientSecret: res.settings.googleClientSecret || '',
+            smtpHost: res.settings.smtpHost || '',
+            smtpPort: res.settings.smtpPort || 587,
+            smtpUser: res.settings.smtpUser || '',
+            smtpPass: res.settings.smtpPass || '',
+            smtpFrom: res.settings.smtpFrom || '',
+          });
+        }
+      }
+    } catch (err: any) {
+      setSettingsError(err.message || 'Failed to save settings');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminView === 'platform' && adminSubTab === 'settings') {
+      loadSettings();
+    }
+  }, [adminView, adminSubTab]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -1874,166 +1975,465 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                   <p className="text-mute text-sm mt-1 font-serif italic">Manage all organizations, subscriptions, and platform health from this interface.</p>
                 </div>
 
-                {/* Platform KPIs */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
-                  {[
-                    { label: 'Total Organizations', value: platformData?.kpis?.totalOrganizations ?? '24', change: '+3 this month', icon: '🏢' },
-                    { label: 'Active Users', value: platformData?.kpis?.activeUsers ?? '187', change: '+12 this week', icon: '👥' },
-                    { label: 'Platform MRR', value: platformData?.kpis?.platformMRR ?? '₹3,84,000', change: '+18% growth', icon: '💰' },
-                    { label: 'Avg. Session Time', value: '42 min', change: 'Per active user', icon: '⏱️' },
-                  ].map((kpi, i) => (
-                    <div key={i} className="bg-canvas border border-hairline rounded-md p-5 hover:border-primary/30 transition-colors">
-                      <div className="text-2xl mb-2">{kpi.icon}</div>
-                      <div className="text-xl font-black text-ink font-mono">{kpi.value}</div>
-                      <div className="text-xs font-semibold text-ink mt-1">{kpi.label}</div>
-                      <div className="text-[10px] text-positive mt-1 font-mono">{kpi.change}</div>
-                    </div>
-                  ))}
+                {/* Platform Control Center Tabs */}
+                <div className="flex gap-4 border-b border-hairline mb-8 select-none">
+                  <button
+                    onClick={() => setAdminSubTab('dashboard')}
+                    className={`pb-3 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer border-b-2 ${
+                      adminSubTab === 'dashboard'
+                        ? 'border-primary text-primary font-black'
+                        : 'border-transparent text-mute hover:text-ink font-semibold'
+                    }`}
+                  >
+                    📊 Platform Dashboard
+                  </button>
+                  <button
+                    onClick={() => setAdminSubTab('settings')}
+                    className={`pb-3 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer border-b-2 ${
+                      adminSubTab === 'settings'
+                        ? 'border-primary text-primary font-black'
+                        : 'border-transparent text-mute hover:text-ink font-semibold'
+                    }`}
+                  >
+                    ⚙️ Platform Settings
+                  </button>
                 </div>
 
-                {/* Organizations Table */}
-                <div className="bg-canvas border border-hairline rounded-md overflow-hidden mb-6">
-                  <div className="border-b border-hairline px-6 py-4 flex items-center justify-between">
-                    <h2 className="font-bold text-ink text-sm uppercase tracking-wider font-mono">All Organizations</h2>
-                    <span className="text-mute text-xs font-mono">{platformData?.kpis?.totalOrganizations ?? 24} tenants</span>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-canvas-soft border-b border-hairline">
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Organization</th>
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Plan</th>
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Users</th>
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">MRR</th>
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Status</th>
-                        <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(platformData?.organizations ?? [
-                        { id: 'mock-1', name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
-                        { id: 'mock-2', name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
-                        { id: 'mock-3', name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
-                        { id: 'mock-4', name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
-                        { id: 'mock-5', name: 'SkyLine Consultants', plan: 'Premium', users: 12, mrr: '₹1,999', status: 'Active', joined: '2024-11' },
-                        { id: 'mock-6', name: 'Apex Creative Co.', plan: 'Free', users: 2, mrr: '₹0', status: 'Suspended', joined: '2025-09' },
-                      ]).map((org: any, i: number) => (
-                        <tr key={org.id || i} className="border-b border-hairline/50 hover:bg-canvas-soft/50 transition-colors">
-                          <td className="px-6 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs font-mono">
-                                {org.name ? org.name[0] : 'O'}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-ink text-xs">{org.name}</div>
-                                <div className="text-mute text-[10px] font-mono">since {org.joined}</div>
-                              </div>
+                {adminSubTab === 'dashboard' ? (
+                  <>
+                    {/* Platform KPIs */}
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                      {[
+                        { label: 'Total Organizations', value: platformData?.kpis?.totalOrganizations ?? '24', change: '+3 this month', icon: '🏢' },
+                        { label: 'Active Users', value: platformData?.kpis?.activeUsers ?? '187', change: '+12 this week', icon: '👥' },
+                        { label: 'Platform MRR', value: platformData?.kpis?.platformMRR ?? '₹3,84,000', change: '+18% growth', icon: '💰' },
+                        { label: 'Avg. Session Time', value: '42 min', change: 'Per active user', icon: '⏱️' },
+                      ].map((kpi, i) => (
+                        <div key={i} className="bg-canvas border border-hairline rounded-md p-5 hover:border-primary/30 transition-colors">
+                          <div className="text-2xl mb-2">{kpi.icon}</div>
+                          <div className="text-xl font-black text-ink font-mono">{kpi.value}</div>
+                          <div className="text-xs font-semibold text-ink mt-1">{kpi.label}</div>
+                          <div className="text-[10px] text-positive mt-1 font-mono">{kpi.change}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Organizations Table */}
+                    <div className="bg-canvas border border-hairline rounded-md overflow-hidden mb-6">
+                      <div className="border-b border-hairline px-6 py-4 flex items-center justify-between">
+                        <h2 className="font-bold text-ink text-sm uppercase tracking-wider font-mono">All Organizations</h2>
+                        <span className="text-mute text-xs font-mono">{platformData?.kpis?.totalOrganizations ?? 24} tenants</span>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-canvas-soft border-b border-hairline">
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Organization</th>
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Plan</th>
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Users</th>
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">MRR</th>
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Status</th>
+                            <th className="text-left px-6 py-3 text-[10px] uppercase tracking-wider text-mute font-bold">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(platformData?.organizations ?? [
+                            { id: 'mock-1', name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
+                            { id: 'mock-2', name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
+                            { id: 'mock-3', name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
+                            { id: 'mock-4', name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
+                            { id: 'mock-5', name: 'SkyLine Consultants', plan: 'Premium', users: 12, mrr: '₹1,999', status: 'Active', joined: '2024-11' },
+                            { id: 'mock-6', name: 'Apex Creative Co.', plan: 'Free', users: 2, mrr: '₹0', status: 'Suspended', joined: '2025-09' },
+                          ]).map((org: any, i: number) => (
+                            <tr key={org.id || i} className="border-b border-hairline/50 hover:bg-canvas-soft/50 transition-colors">
+                              <td className="px-6 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs font-mono">
+                                    {org.name ? org.name[0] : 'O'}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-ink text-xs">{org.name}</div>
+                                    <div className="text-mute text-[10px] font-mono">since {org.joined}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-3">
+                                <select
+                                  value={org.plan}
+                                  onChange={async (e) => {
+                                    const newPlan = e.target.value;
+                                    try {
+                                      await api.superadmin.updateOrganization({ id: org.id, plan: newPlan });
+                                      refreshData();
+                                    } catch (err: any) {
+                                      alert(`Error: ${err.message}`);
+                                    }
+                                  }}
+                                  className="bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 text-ink focus:outline-none"
+                                >
+                                  <option value="Free">Free</option>
+                                  <option value="Standard">Standard</option>
+                                  <option value="Premium">Premium</option>
+                                </select>
+                              </td>
+                              <td className="px-6 py-3 text-xs font-mono text-body-text">{org.users}</td>
+                              <td className="px-6 py-3 text-xs font-mono font-semibold text-ink">{org.mrr}</td>
+                              <td className="px-6 py-3">
+                                <select
+                                  value={org.status}
+                                  onChange={async (e) => {
+                                    const newStatus = e.target.value;
+                                    try {
+                                      await api.superadmin.updateOrganization({ id: org.id, status: newStatus });
+                                      refreshData();
+                                    } catch (err: any) {
+                                      alert(`Error: ${err.message}`);
+                                    }
+                                  }}
+                                  className={`bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 focus:outline-none ${
+                                    org.status === 'Active' ? 'text-positive border-positive/30' :
+                                    org.status === 'Trial' ? 'text-warning-content border-warning/30' :
+                                    'text-negative border-negative/30'
+                                  }`}
+                                >
+                                  <option value="Active">Active</option>
+                                  <option value="Trial">Trial</option>
+                                  <option value="Suspended">Suspended</option>
+                                </select>
+                              </td>
+                              <td className="px-6 py-3">
+                                <button
+                                  onClick={() => handleImpersonate(org.id, org.name)}
+                                  className="text-primary text-[10px] font-mono uppercase tracking-wider hover:bg-primary hover:text-on-primary border border-primary/20 hover:border-primary/50 px-2 py-1 rounded transition-all cursor-pointer"
+                                >
+                                  Impersonate
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Platform Health */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-canvas border border-hairline rounded-md p-5">
+                        <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Subscription Breakdown</h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: 'Premium', count: platformData?.kpis?.premiumCount ?? 8, color: 'bg-primary' },
+                            { label: 'Standard', count: platformData?.kpis?.standardCount ?? 11, color: 'bg-positive' },
+                            { label: 'Free / Trial', count: platformData?.kpis?.freeCount ?? 5, color: 'bg-canvas-soft border border-hairline' }
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-sm ${s.color}`}></div>
+                              <span className="text-xs text-body-text flex-1">{s.label}</span>
+                              <span className="text-xs font-bold font-mono text-ink">{s.count}</span>
                             </div>
-                          </td>
-                          <td className="px-6 py-3">
-                            <select
-                              value={org.plan}
-                              onChange={async (e) => {
-                                const newPlan = e.target.value;
-                                try {
-                                  await api.superadmin.updateOrganization({ id: org.id, plan: newPlan });
-                                  refreshData();
-                                } catch (err: any) {
-                                  alert(`Error: ${err.message}`);
-                                }
-                              }}
-                              className="bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 text-ink focus:outline-none"
-                            >
-                              <option value="Free">Free</option>
-                              <option value="Standard">Standard</option>
-                              <option value="Premium">Premium</option>
-                            </select>
-                          </td>
-                          <td className="px-6 py-3 text-xs font-mono text-body-text">{org.users}</td>
-                          <td className="px-6 py-3 text-xs font-mono font-semibold text-ink">{org.mrr}</td>
-                          <td className="px-6 py-3">
-                            <select
-                              value={org.status}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value;
-                                try {
-                                  await api.superadmin.updateOrganization({ id: org.id, status: newStatus });
-                                  refreshData();
-                                } catch (err: any) {
-                                  alert(`Error: ${err.message}`);
-                                }
-                              }}
-                              className={`bg-canvas border border-hairline text-[10px] font-bold font-mono uppercase rounded p-1 focus:outline-none ${
-                                org.status === 'Active' ? 'text-positive border-positive/30' :
-                                org.status === 'Trial' ? 'text-warning-content border-warning/30' :
-                                'text-negative border-negative/30'
-                              }`}
-                            >
-                              <option value="Active">Active</option>
-                              <option value="Trial">Trial</option>
-                              <option value="Suspended">Suspended</option>
-                            </select>
-                          </td>
-                          <td className="px-6 py-3">
-                            <button
-                              onClick={() => handleImpersonate(org.id, org.name)}
-                              className="text-primary text-[10px] font-mono uppercase tracking-wider hover:bg-primary hover:text-on-primary border border-primary/20 hover:border-primary/50 px-2 py-1 rounded transition-all cursor-pointer"
-                            >
-                              Impersonate
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Platform Health */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-canvas border border-hairline rounded-md p-5">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Subscription Breakdown</h3>
-                    <div className="space-y-3">
-                      {[
-                        { label: 'Premium', count: platformData?.kpis?.premiumCount ?? 8, color: 'bg-primary' },
-                        { label: 'Standard', count: platformData?.kpis?.standardCount ?? 11, color: 'bg-positive' },
-                        { label: 'Free / Trial', count: platformData?.kpis?.freeCount ?? 5, color: 'bg-canvas-soft border border-hairline' }
-                      ].map((s, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-sm ${s.color}`}></div>
-                          <span className="text-xs text-body-text flex-1">{s.label}</span>
-                          <span className="text-xs font-bold font-mono text-ink">{s.count}</span>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-canvas border border-hairline rounded-md p-5">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Platform Events (24h)</h3>
-                    <div className="space-y-2">
-                      {[
-                        { event: 'New org registered', count: platformData?.kpis?.newRegCount ?? 2 },
-                        { event: 'Google OAuth logins', count: 34 },
-                        { event: 'Invoices created', count: 18 },
-                        { event: 'API requests', count: '12.4K' },
-                      ].map((e, i) => (
-                        <div key={i} className="flex justify-between text-xs">
-                          <span className="text-body-text">{e.event}</span>
-                          <span className="font-bold font-mono text-ink">{e.count}</span>
+                      </div>
+                      <div className="bg-canvas border border-hairline rounded-md p-5">
+                        <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Platform Events (24h)</h3>
+                        <div className="space-y-2">
+                          {[
+                            { event: 'New org registered', count: platformData?.kpis?.newRegCount ?? 2 },
+                            { event: 'Google OAuth logins', count: 34 },
+                            { event: 'Invoices created', count: 18 },
+                            { event: 'API requests', count: '12.4K' },
+                          ].map((e, i) => (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span className="text-body-text">{e.event}</span>
+                              <span className="font-bold font-mono text-ink">{e.count}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-canvas border border-hairline rounded-md p-5">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Logged in as</h3>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-black text-sm">⚡</div>
-                      <div>
-                        <div className="text-xs font-semibold text-ink">{user?.firstName} {user?.lastName}</div>
-                        <div className="text-[10px] text-mute font-mono">{user?.email}</div>
-                        <div className="mt-1 inline-block bg-primary/10 text-primary text-[9px] px-2 py-0.5 rounded font-mono border border-primary/20">SUPERADMIN</div>
+                      </div>
+                      <div className="bg-canvas border border-hairline rounded-md p-5">
+                        <h3 className="font-bold text-xs uppercase tracking-wider text-mute font-mono mb-4">Logged in as</h3>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-black text-sm">⚡</div>
+                          <div>
+                            <div className="text-xs font-semibold text-ink">{user?.firstName} {user?.lastName}</div>
+                            <div className="text-[10px] text-mute font-mono">{user?.email}</div>
+                            <div className="mt-1 inline-block bg-primary/10 text-primary text-[9px] px-2 py-0.5 rounded font-mono border border-primary/20">SUPERADMIN</div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-mute font-serif italic">You have full platform access. Use the Impersonate button to enter any org workspace.</p>
                       </div>
                     </div>
-                    <p className="text-[10px] text-mute font-serif italic">You have full platform access. Use the Impersonate button to enter any org workspace.</p>
+                  </>
+                ) : (
+                  /* Platform Settings UI */
+                  <div className="bg-canvas border border-hairline rounded-md overflow-hidden flex min-h-[500px]">
+                    {/* Settings Sub-Sidebar */}
+                    <div className="w-64 border-r border-hairline bg-canvas-soft p-4 flex flex-col gap-1 shrink-0">
+                      {[
+                        { id: 'general', label: '🌐 General Settings' },
+                        { id: 'stripe', label: '💳 Stripe & Billing' },
+                        { id: 'integrations', label: '🤖 AI & Integrations' },
+                        { id: 'smtp', label: '📧 Email / SMTP' }
+                      ].map(sec => (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          onClick={() => {
+                            setSettingsSuccess('');
+                            setSettingsError('');
+                            setActiveSettingsSection(sec.id as any);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-mono uppercase tracking-wider rounded transition-all cursor-pointer ${
+                            activeSettingsSection === sec.id
+                              ? 'bg-primary/15 text-primary font-bold border-l-2 border-primary'
+                              : 'text-body-text hover:bg-canvas/50 hover:text-ink'
+                          }`}
+                        >
+                          {sec.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Settings Panel Content */}
+                    <form onSubmit={handleSaveSettings} className="flex-1 p-6 flex flex-col">
+                      <div className="flex-1">
+                        {settingsLoading ? (
+                          <div className="h-48 flex items-center justify-center text-xs font-mono text-mute">
+                            Loading platform settings...
+                          </div>
+                        ) : (
+                          <>
+                            {settingsError && (
+                              <div className="mb-4 bg-negative/10 border border-negative/20 text-negative text-xs p-3 rounded font-mono">
+                                ⚠️ {settingsError}
+                              </div>
+                            )}
+                            {settingsSuccess && (
+                              <div className="mb-4 bg-positive/10 border border-positive/20 text-positive text-xs p-3 rounded font-mono">
+                                {settingsSuccess}
+                              </div>
+                            )}
+
+                            {activeSettingsSection === 'general' && (
+                              <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-ink font-mono border-b border-hairline pb-2 mb-4">General Platform Configurations</h3>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">System Name</label>
+                                  <input
+                                    type="text"
+                                    required
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.systemName}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, systemName: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">Support Email</label>
+                                  <input
+                                    type="email"
+                                    required
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.supportEmail}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, supportEmail: e.target.value })}
+                                  />
+                                </div>
+                                <div className="pt-2 space-y-3">
+                                  <label className="flex items-center gap-3 select-none cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="rounded text-primary border-hairline w-4 h-4 focus:ring-primary"
+                                      checked={platformSettings.allowRegistration}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, allowRegistration: e.target.checked })}
+                                    />
+                                    <div>
+                                      <span className="text-xs font-bold text-ink uppercase font-mono block">Allow Registrations</span>
+                                      <span className="text-[10px] text-mute font-serif italic">Enable public signups on the landing page</span>
+                                    </div>
+                                  </label>
+                                  <label className="flex items-center gap-3 select-none cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="rounded text-primary border-hairline w-4 h-4 focus:ring-primary"
+                                      checked={platformSettings.maintenanceMode}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, maintenanceMode: e.target.checked })}
+                                    />
+                                    <div>
+                                      <span className="text-xs font-bold text-ink uppercase font-mono block">Maintenance Mode</span>
+                                      <span className="text-[10px] text-mute font-serif italic">Restrict workspace console access for scheduled backend updates</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            )}
+
+                            {activeSettingsSection === 'stripe' && (
+                              <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-ink font-mono border-b border-hairline pb-2 mb-4">Stripe Billing Configurations</h3>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">Stripe API Secret Key</label>
+                                  <input
+                                    type="password"
+                                    placeholder="sk_live_..."
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.stripeSecretKey}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, stripeSecretKey: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">Stripe Webhook Signing Secret</label>
+                                  <input
+                                    type="password"
+                                    placeholder="whsec_..."
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.stripeWebhookSecret}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, stripeWebhookSecret: e.target.value })}
+                                  />
+                                </div>
+                                <div className="bg-canvas-soft p-3 rounded border border-hairline text-[10px] text-mute font-serif italic">
+                                  🔐 These keys are safely stored in the database. Leave them blank to default to environment-configured parameters.
+                                </div>
+                              </div>
+                            )}
+
+                            {activeSettingsSection === 'integrations' && (
+                              <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-ink font-mono border-b border-hairline pb-2 mb-4">AI & OAuth Credentials</h3>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">OpenAI API Key (AI Assistant)</label>
+                                  <input
+                                    type="password"
+                                    placeholder="sk-proj-..."
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.openaiApiKey}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, openaiApiKey: e.target.value })}
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 border-t border-hairline/50 pt-3">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">Google Client ID</label>
+                                    <input
+                                      type="text"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.googleClientId}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, googleClientId: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">Google Client Secret</label>
+                                    <input
+                                      type="password"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.googleClientSecret}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, googleClientSecret: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 border-t border-hairline/50 pt-3">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">WhatsApp Phone ID</label>
+                                    <input
+                                      type="text"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.metaPhoneId}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, metaPhoneId: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">WhatsApp Token (Meta Developer)</label>
+                                    <input
+                                      type="password"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.metaToken}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, metaToken: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {activeSettingsSection === 'smtp' && (
+                              <div className="space-y-4">
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-ink font-mono border-b border-hairline pb-2 mb-4">Mail Delivery Configurations (SMTP)</h3>
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div className="col-span-2">
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Host</label>
+                                    <input
+                                      type="text"
+                                      placeholder="smtp.gmail.com"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.smtpHost || ''}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, smtpHost: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Port</label>
+                                    <input
+                                      type="number"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.smtpPort}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, smtpPort: parseInt(e.target.value) || 587 })}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Username</label>
+                                    <input
+                                      type="text"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.smtpUser || ''}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, smtpUser: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Password</label>
+                                    <input
+                                      type="password"
+                                      className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-mono focus:outline-none focus:border-primary text-ink"
+                                      value={platformSettings.smtpPass || ''}
+                                      onChange={e => setPlatformSettings({ ...platformSettings, smtpPass: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Sender Address ("From")</label>
+                                  <input
+                                    type="email"
+                                    placeholder="noreply@clientoq.com"
+                                    className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
+                                    value={platformSettings.smtpFrom || ''}
+                                    onChange={e => setPlatformSettings({ ...platformSettings, smtpFrom: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {!settingsLoading && (
+                        <div className="mt-8 pt-4 border-t border-hairline flex justify-end gap-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsSuccess('');
+                              setSettingsError('');
+                              loadSettings();
+                            }}
+                            className="px-4 py-2 border border-hairline text-ink font-mono text-[10px] font-bold rounded uppercase tracking-wider hover:bg-canvas-soft cursor-pointer transition-all"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={settingsSaving}
+                            className="px-6 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-on-primary font-mono text-[10px] font-bold rounded uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5"
+                          >
+                            {settingsSaving ? 'Saving Configurations...' : 'Save Configurations'}
+                          </button>
+                        </div>
+                      )}
+                    </form>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

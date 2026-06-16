@@ -939,6 +939,28 @@ CodeCrest Studio`;
       return contract || { success: true };
     }
 
+    if (path === '/api/superadmin/settings') {
+      if (method === 'PATCH') {
+        const mockSettings = { ...body, id: 'default', updatedAt: new Date().toISOString() };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('clientoq_mock_settings', JSON.stringify(mockSettings));
+        }
+        return { success: true, settings: mockSettings };
+      }
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('clientoq_mock_settings');
+        if (saved) return JSON.parse(saved);
+      }
+      return {
+        id: 'default',
+        systemName: 'Clientoq',
+        supportEmail: 'support@clientoq.com',
+        allowRegistration: true,
+        maintenanceMode: false,
+        smtpPort: 587
+      };
+    }
+
     throw new Error(`Fallback handler not implemented for ${method} ${path}`);
   }
 
@@ -1067,6 +1089,8 @@ export const api = {
   // SuperAdmin Platform Management
   superadmin: {
     getPlatformData: () => apiFetch('/api/superadmin/organizations'),
-    updateOrganization: (body: { id: string; plan?: string; status?: string }) => apiFetch('/api/superadmin/organizations', { method: 'PATCH', body: JSON.stringify(body) })
+    updateOrganization: (body: { id: string; plan?: string; status?: string }) => apiFetch('/api/superadmin/organizations', { method: 'PATCH', body: JSON.stringify(body) }),
+    getSettings: () => apiFetch('/api/superadmin/settings'),
+    updateSettings: (body: any) => apiFetch('/api/superadmin/settings', { method: 'PATCH', body: JSON.stringify(body) })
   }
 };
