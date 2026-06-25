@@ -34,6 +34,12 @@ build/
 *.env.*
 .envrc
 
+# Prisma generated client (regenerated per deployment environment — platform-specific binaries)
+/generated/prisma
+packages/database/src/generated/
+prisma/generated/
+**/.prisma/
+
 # Databases
 *.db
 *.db-journal
