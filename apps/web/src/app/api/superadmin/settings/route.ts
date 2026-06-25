@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         data: {
           id: 'default',
           systemName: 'Clientoq',
-          supportEmail: 'support@clientoq.com',
+          supportEmail: 'support@client-oq.vercel.app',
           allowRegistration: true,
           maintenanceMode: false,
           smtpPort: 587, // just in case
@@ -91,7 +91,7 @@ export async function PATCH(req: NextRequest) {
       create: {
         id: 'default',
         systemName: systemName ?? 'Clientoq',
-        supportEmail: supportEmail ?? 'support@clientoq.com',
+        supportEmail: supportEmail ?? 'support@client-oq.vercel.app',
         allowRegistration: allowRegistration ?? true,
         maintenanceMode: maintenanceMode ?? false,
         stripeSecretKey,

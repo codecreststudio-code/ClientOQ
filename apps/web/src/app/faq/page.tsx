@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import SmoothScroll from '../../components/motion/SmoothScroll';
 
 export default function FAQPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -19,15 +20,11 @@ export default function FAQPage() {
     },
     {
       q: "Which billing systems are integrated?",
-      a: "We currently interface directly with Razorpay, allowing you to settle cgst/sgst bills easily. We are planning support for other processors in subsequent cycles."
+      a: "We currently interface directly with Razorpay, allowing your clients to settle project invoices easily. We are planning support for other processors in subsequent cycles."
     },
     {
       q: "Is my organization and transaction data secure?",
       a: "Yes. Clientoq is structured as a single-tenant environment. Data sits inside distinct files or isolated schemas depending on your tier, so it is never aggregated or mixed with other tenants."
-    },
-    {
-      q: "Are the monthly subscription levels subject to GST?",
-      a: "Yes. Subscriptions exclude 18% IGST. We generate and email proper invoices carrying your business registration GST details automatically upon billing clearance."
     },
     {
       q: "Can I cancel my account or get a refund?",
@@ -37,8 +34,9 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
+      <SmoothScroll>
+        <Header />
+        <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
         <div className="flex flex-col gap-4 text-center max-w-2xl mx-auto">
           <span className="text-[10px] font-semibold text-primary tracking-widest">[ Frequently Asked Questions ]</span>
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
@@ -89,6 +87,7 @@ export default function FAQPage() {
         </div>
       </main>
       <Footer />
+      </SmoothScroll>
     </div>
   );
 }

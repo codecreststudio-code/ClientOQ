@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const subtotal = body.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0);
-  const taxAmount = subtotal * 0.18; // 18% GST
+  const taxRate = body.taxRate !== undefined ? parseFloat(body.taxRate) : 0.0;
+  const taxAmount = subtotal * taxRate;
   const totalAmount = subtotal + taxAmount;
 
   // Generate invoice number

@@ -132,6 +132,12 @@ exports.Prisma.OrganizationScalarFieldEnum = {
   teamSize: 'teamSize',
   subscriptionPlan: 'subscriptionPlan',
   subscriptionStatus: 'subscriptionStatus',
+  subdomain: 'subdomain',
+  themeColor: 'themeColor',
+  razorpayKeyId: 'razorpayKeyId',
+  razorpayKeySecret: 'razorpayKeySecret',
+  stripePublishableKey: 'stripePublishableKey',
+  stripeSecretKey: 'stripeSecretKey',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -482,6 +488,53 @@ exports.Prisma.TimeLogScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.PlatformSettingsScalarFieldEnum = {
+  id: 'id',
+  systemName: 'systemName',
+  supportEmail: 'supportEmail',
+  allowRegistration: 'allowRegistration',
+  maintenanceMode: 'maintenanceMode',
+  stripeSecretKey: 'stripeSecretKey',
+  stripeWebhookSecret: 'stripeWebhookSecret',
+  openaiApiKey: 'openaiApiKey',
+  metaToken: 'metaToken',
+  metaPhoneId: 'metaPhoneId',
+  googleClientId: 'googleClientId',
+  googleClientSecret: 'googleClientSecret',
+  smtpHost: 'smtpHost',
+  smtpPort: 'smtpPort',
+  smtpUser: 'smtpUser',
+  smtpPass: 'smtpPass',
+  smtpFrom: 'smtpFrom',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SubscriptionPlanScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  name: 'name',
+  description: 'description',
+  price: 'price',
+  currency: 'currency',
+  interval: 'interval',
+  features: 'features',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ClientSubscriptionScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  clientId: 'clientId',
+  planId: 'planId',
+  status: 'status',
+  currentPeriodEnd: 'currentPeriodEnd',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -542,7 +595,10 @@ exports.Prisma.ModelName = {
   AIMessage: 'AIMessage',
   DailyMetrics: 'DailyMetrics',
   AuditLog: 'AuditLog',
-  TimeLog: 'TimeLog'
+  TimeLog: 'TimeLog',
+  PlatformSettings: 'PlatformSettings',
+  SubscriptionPlan: 'SubscriptionPlan',
+  ClientSubscription: 'ClientSubscription'
 };
 
 /**

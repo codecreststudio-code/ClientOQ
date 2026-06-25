@@ -58,7 +58,7 @@ export default function JoinWaitlistPage() {
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
                   className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
-                  placeholder="e.g. hello@clientoq.com"
+                  placeholder="e.g. hello@client-oq.vercel.app"
                 />
               </div>
 

@@ -1,5 +1,11 @@
 // In production on Vercel, API routes are hosted on the same Next.js origin.
 // In development, we also use Next.js backend API routes to avoid a separate NestJS process.
+//
+// NOTE: The in-memory fallback database is for LOCAL DEVELOPMENT ONLY.
+// Set NEXT_PUBLIC_ENABLE_MOCK_API=true to activate it when the NestJS backend is not running.
+
+const ENABLE_MOCK_API = typeof window !== 'undefined' &&
+  process.env.NEXT_PUBLIC_ENABLE_MOCK_API === 'true';
 
 export function getTenantSubdomain(): string | null {
   if (typeof window === 'undefined') return null;
@@ -135,7 +141,9 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     });
   }
 
-  if (token) {
+  // Prefer httpOnly cookie auth via credentials: 'include'. Send Bearer token only
+  // when a token is explicitly available as a fallback for mock/dev mode.
+  if (token && process.env.NODE_ENV === 'development') {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -156,24 +164,40 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     headers
   };
 
+  if (!ENABLE_MOCK_API) {
+    throw new Error(`API unreachable: ${path}. Start the backend server or set NEXT_PUBLIC_ENABLE_MOCK_API=true for mock mode.`);
+  }
+
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, mergedOptions);
   } catch (error: any) {
-    console.warn(`[API Connection Failed] Path: ${path}. falling back to local mock storage. Details:`, error.message);
-    // Process mock fallback logic locally
+    if (!ENABLE_MOCK_API) {
+      throw error;
+    }
+    console.warn(`[API Connection Failed] Path: ${path}. falling back to local mock storage.`, error.message);
     return handleMockFallback(path, options);
   }
 
-  if (!res.ok) {
+  if (!ENABLE_MOCK_API && !res.ok) {
     const errBody = await res.json().catch(() => ({ message: 'API error occurred' }));
-    if (res.status === 401 && (errBody.message === 'Token verification failed' || errBody.message === 'Missing or invalid auth token')) {
+    throw new Error(errBody.message || `API Error: ${res.status}`);
+  }
+
+  if (!res.ok) {
+    // Only reachable if MOCK_API is enabled
+    const errBody = await res.json().catch(() => ({ message: 'API error occurred' }));
+    
+    if (res.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('clientoq_jwt');
         localStorage.removeItem('clientoq_user');
       }
+      return null;
     }
-    throw new Error(errBody.message || `HTTP error! status: ${res.status}`);
+    
+    console.warn(`[API Warning] ${path} failed with status ${res.status}:`, errBody.message);
+    return null;
   }
   return await res.json();
 }
@@ -197,8 +221,8 @@ function handleMockFallback(path: string, options: RequestInit) {
         lastName: 'Ali',
         email: body.email,
         role: 'Owner',
-        organizationId: 'org-codecrest',
-        organizationName: 'CodeCrest Studio',
+        organizationId: 'org-acme',
+        organizationName: 'Acme Studio',
         isEmailVerified: true
       };
       if (typeof window !== 'undefined') {
@@ -217,7 +241,7 @@ function handleMockFallback(path: string, options: RequestInit) {
       id: isSuperAdmin ? 'usr-superadmin' : 'usr-google',
       firstName: 'Google',
       lastName: 'User',
-      email: isSuperAdmin ? 'codecreststudio@gmail.com' : 'google.user@gmail.com',
+      email: isSuperAdmin ? 'admin@client-oq.vercel.app' : 'google.user@gmail.com',
       role: isSuperAdmin ? 'SuperAdmin' : 'Owner',
       organizationId: isSuperAdmin ? null : 'org-google',
       organizationName: isSuperAdmin ? null : 'Google Agency',
@@ -253,7 +277,7 @@ function handleMockFallback(path: string, options: RequestInit) {
       const u = localStorage.getItem('clientoq_user');
       if (u) return { user: JSON.parse(u) };
     }
-    return { user: { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner', isEmailVerified: true } };
+    return { user: { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'admin@client-oq.vercel.app', role: 'Owner', isEmailVerified: true } };
   }
 
   if (path === '/api/auth/invites/create' && method === 'POST') {
@@ -265,7 +289,7 @@ function handleMockFallback(path: string, options: RequestInit) {
       status: 'Pending',
       expiresAt: new Date(Date.now() + 7 * 86400000).toISOString()
     };
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://client-oq.vercel.app';
     console.log(`[MOCK INVITE] Link: ${origin}/?auth=register&inviteToken=${newInvite.token}`);
     return { invite: { ...newInvite, inviteLink: `${origin}/?auth=register&inviteToken=${newInvite.token}` } };
   }
@@ -297,13 +321,13 @@ function handleMockFallback(path: string, options: RequestInit) {
 
   if (path === '/api/auth/users') {
     return [
-      { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner', status: 'Active' }
+      { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'admin@client-oq.vercel.app', role: 'Owner', status: 'Active' }
     ];
   }
 
   if (path === '/api/auth/profile' && method === 'PUT') {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('clientoq_user') : null;
-    const current = saved ? JSON.parse(saved) : { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'syed@codecrest.com', role: 'Owner' };
+    const current = saved ? JSON.parse(saved) : { id: 'usr-syed', firstName: 'Syed', lastName: 'Ali', email: 'admin@client-oq.vercel.app', role: 'Owner' };
     const updated = {
       ...current,
       phone: body.phone,
@@ -767,7 +791,7 @@ Please let us know if you have any questions.
 
 Best,
 Syed Ali
-CodeCrest Studio`;
+Acme Studio`;
     } else {
       reply = `Hello! I am your Clientoq AI Assistant. I can write proposals, generate invoice previews, list recommended tasks, or summarize your client projects. Try typing "Summarize Acme Corp".`;
     }
@@ -988,7 +1012,7 @@ CodeCrest Studio`;
       return {
         id: 'default',
         systemName: 'Clientoq',
-        supportEmail: 'support@clientoq.com',
+        supportEmail: 'support@client-oq.vercel.app',
         allowRegistration: true,
         maintenanceMode: false,
         smtpPort: 587

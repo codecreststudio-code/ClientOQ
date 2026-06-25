@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('api/whatsapp')
 @UseGuards(AuthGuard)
 export class WhatsappController {
+  private readonly logger = new Logger('WhatsappController');
+
   constructor(private prisma: PrismaService) {}
 
   @Get('conversations')
@@ -79,7 +81,7 @@ export class WhatsappController {
           data: { lastMessage: clientReplyContent }
         });
       } catch (err) {
-        console.error('Failed to trigger mock client WhatsApp reply:', err);
+        this.logger.error('Failed to trigger mock client WhatsApp reply:', err);
       }
     }, 2000);
 

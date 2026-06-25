@@ -4,12 +4,14 @@ import React from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { ArrowRight, Sparkles, CheckCircle2, UserPlus, FileText } from 'lucide-react';
+import SmoothScroll from '../../components/motion/SmoothScroll';
 
 export default function HowItWorksPage() {
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
+      <SmoothScroll>
+        <Header />
+        <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
         <div className="flex flex-col gap-4 text-center max-w-2xl mx-auto">
           <span className="text-[10px] font-mono uppercase text-primary tracking-widest">[ Step-By-Step Workflow ]</span>
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight">
@@ -93,6 +95,7 @@ export default function HowItWorksPage() {
         </div>
       </main>
       <Footer />
+      </SmoothScroll>
     </div>
   );
 }

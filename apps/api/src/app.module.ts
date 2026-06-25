@@ -46,19 +46,20 @@ import { HealthController } from "./common/health.controller";
     JwtModule.register({
       secret: (() => {
         const secret = process.env.JWT_SECRET;
-        if (!secret || secret.includes("development") || secret.length < 32) {
-          if (process.env.NODE_ENV === "production") {
+        if (!secret || secret.length < 32) {
+          const isProd = process.env.NODE_ENV === "production";
+          if (isProd) {
             throw new Error(
-              "JWT_SECRET must be a strong 32+ char secret in production. Set it in your environment.",
+              "JWT_SECRET must be a strong 32+ char secret in production.",
             );
           }
-          console.warn(
-            "[WARN] Using weak JWT_SECRET — set a strong one before deploying to production!",
-          );
+          if (!secret || secret.includes("development") || secret.length < 16) {
+            console.warn(
+              "[WARN] JWT_SECRET is weak — generate a strong one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+            );
+          }
         }
-        return (
-          secret || "super-secret-key-clientoq-ai-2026-development"
-        );
+        return secret;
       })(),
       signOptions: { expiresIn: process.env.JWT_EXPIRY || "15m" },
     }),

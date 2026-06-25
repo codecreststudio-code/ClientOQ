@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-agencyos-ai-2026-development';
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be a strong 32+ char secret in production.');
+    }
+    console.warn('[WARN] JWT_SECRET is weak — set a strong one for production.');
+  }
+  return secret;
+})();
 
 export interface AuthUser {
   sub: string;
@@ -22,7 +31,7 @@ export function verifyAuth(req: NextRequest): AuthUser | null {
   const token = getToken(req);
   if (!token) return null;
   try {
-    return jwt.verify(token, JWT_SECRET) as AuthUser;
+    return jwt.verify(token, JWT_SECRET as string) as AuthUser;
   } catch {
     return null;
   }

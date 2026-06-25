@@ -17,14 +17,14 @@ export const config = {
 export default function middleware(req: NextRequest) {
   const url = req.nextUrl;
   
-  // Get hostname of request (e.g. demo.clientoq.com, demo.localhost:3000)
+  // Get hostname of request (e.g. demo.client-oq.vercel.app, demo.localhost:3000)
   let hostname = req.headers.get('host') || '';
 
   // Remove port if present for local development checking
   hostname = hostname.split(':')[0];
 
   // Define allowed core domains that should NOT be treated as subdomains
-  const allowedDomains = ['localhost', 'clientoq.com', 'www.clientoq.com', 'client-oq.vercel.app'];
+  const allowedDomains = ['localhost', 'clientoq.com', 'www.clientoq.com', 'client-oq.vercel.app', 'www.client-oq.vercel.app'];
 
   // Check if it's a subdomain
   if (!allowedDomains.includes(hostname)) {
@@ -38,10 +38,12 @@ export default function middleware(req: NextRequest) {
       currentHost = hostname.replace('.localhost', '');
     } else if (hostname.endsWith('.clientoq.com')) {
       currentHost = hostname.replace('.clientoq.com', '');
+    } else if (hostname.endsWith('.client-oq.vercel.app')) {
+      currentHost = hostname.replace('.client-oq.vercel.app', '');
     }
     
     // Rewrite to our dynamic org route
-    // e.g. acme.clientoq.com/dashboard -> clientoq.com/org/acme/dashboard
+    // e.g. acme.clientoq.com/dashboard -> client-oq.vercel.app/org/acme/dashboard
     return NextResponse.rewrite(new URL(`/org/${currentHost}${url.pathname}`, req.url));
   }
 

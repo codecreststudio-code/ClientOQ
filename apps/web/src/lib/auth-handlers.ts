@@ -1,18 +1,27 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@clientoq/database';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-agencyos-ai-2026-development';
-const SUPER_ADMIN_EMAILS = ['codecreststudio@gmail.com'];
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be a strong 32+ char secret in production.');
+    }
+    console.warn('[WARN] JWT_SECRET is weak — set a strong one for production.');
+  }
+  return secret;
+})();
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean);
 
-function signToken(payload: object) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+function signToken(payload: string | Buffer | object) {
+  return jwt.sign(payload, JWT_SECRET as string, { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string) {
-  return jwt.verify(token, JWT_SECRET) as any;
+  return jwt.verify(token, JWT_SECRET as string) as any;
 }
 
 export async function handleLogin(body: any) {

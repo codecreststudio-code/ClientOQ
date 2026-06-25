@@ -4,12 +4,14 @@ import React from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { Target, Users, Code, Award } from 'lucide-react';
+import SmoothScroll from '../../components/motion/SmoothScroll';
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
+      <SmoothScroll>
+        <Header />
+        <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
         <div className="flex flex-col gap-4 text-center max-w-2xl mx-auto">
           <span className="text-[10px] font-mono uppercase text-primary tracking-widest">[ Our Philosophy ]</span>
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight">
@@ -46,7 +48,7 @@ export default function AboutPage() {
             </div>
             <div>
               <h3 className="font-mono text-xs uppercase tracking-wider text-ink font-bold">Built for Indian Ops</h3>
-              <p className="text-mute text-[11px] mt-1">Out of the box support for 18% GST invoices, CGST/SGST calculations, and local webhooks like Razorpay.</p>
+              <p className="text-mute text-[11px] mt-1">Out of the box support for professional invoicing, dynamic currencies, and local webhooks like Razorpay.</p>
             </div>
           </div>
 
@@ -85,6 +87,7 @@ export default function AboutPage() {
         </div>
       </main>
       <Footer />
+      </SmoothScroll>
     </div>
   );
 }

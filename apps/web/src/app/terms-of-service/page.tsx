@@ -3,12 +3,14 @@
 import React from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import SmoothScroll from '../../components/motion/SmoothScroll';
 
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
-      <Header />
-      <main className="flex-1 max-w-3xl mx-auto w-full py-20 px-8 flex flex-col gap-8" id="main-content">
+      <SmoothScroll>
+        <Header />
+        <main className="flex-1 max-w-3xl mx-auto w-full py-20 px-8 flex flex-col gap-8" id="main-content">
         <div className="flex flex-col gap-4">
           <span className="text-[10px] font-mono uppercase text-primary tracking-widest">[ Operational Guidelines ]</span>
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight">
@@ -34,7 +36,7 @@ export default function TermsOfServicePage() {
 
           <h2 className="font-mono text-xs font-bold text-ink uppercase tracking-wider mt-6 mb-2">3. Subscription Billing & Fees</h2>
           <p>
-            We bill subscription charges in advance on a recurring monthly cycle. All listed pricing plans (Free, Standard ₹699, Premium ₹1,999) are subject to 18% IGST. Failure to settle invoice balances will result in access suspension.
+            We bill subscription charges in advance on a recurring monthly cycle. All listed pricing plans (Free, Standard ₹699, Premium ₹1,999) do not carry any additional tax charges. Failure to settle invoice balances will result in access suspension.
           </p>
 
           <h2 className="font-mono text-xs font-bold text-ink uppercase tracking-wider mt-6 mb-2">4. Disclaimers & Limitation of Liability</h2>
@@ -44,6 +46,7 @@ export default function TermsOfServicePage() {
         </div>
       </main>
       <Footer />
+      </SmoothScroll>
     </div>
   );
 }

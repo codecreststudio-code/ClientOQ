@@ -2,6 +2,15 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, ok, err } from '@/lib/api-middleware';
 
+type Lead = NonNullable<Awaited<ReturnType<typeof prisma.lead.findFirst>>>;
+type Client = NonNullable<Awaited<ReturnType<typeof prisma.client.findFirst>>>;
+type Invoice = NonNullable<Awaited<ReturnType<typeof prisma.invoice.findFirst>>>;
+type Expense = NonNullable<Awaited<ReturnType<typeof prisma.expense.findFirst>>>;
+type Project = NonNullable<Awaited<ReturnType<typeof prisma.project.findFirst>>>;
+type Task = NonNullable<Awaited<ReturnType<typeof prisma.task.findFirst>>>;
+type Automation = NonNullable<Awaited<ReturnType<typeof prisma.automation.findFirst>>>;
+type AutomationLog = NonNullable<Awaited<ReturnType<typeof prisma.automationLog.findFirst>>>;
+
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ('error' in auth) return auth.error;
@@ -76,8 +85,8 @@ async function localChatFallback(orgId: string, msgLower: string): Promise<strin
         _count: true
       });
 
-      const stagesStr = leadStages.map(s => `* **${s.status}**: ${s._count} leads`).join('\n');
-      const leadsTable = leads.map(l => 
+      const stagesStr = leadStages.map((s: { status: string; _count: number }) => `* **${s.status}**: ${s._count} leads`).join('\n');
+      const leadsTable = leads.map((l: Lead) => 
         `| ${l.firstName} ${l.lastName} | ${l.companyName || 'N/A'} | ${l.status} | ₹${(l.estimatedValue || 0).toLocaleString()} |`
       ).join('\n');
 
@@ -111,11 +120,11 @@ ${leadsTable || '| No recent leads | - | - | - |'}
         take: 8
       });
 
-      const projectsList = projects.map(p => 
+      const projectsList = projects.map((p: Project & { client: Client }) => 
         `* **${p.name}** (Client: *${p.client.companyName}*) - Status: \`${p.status}\` | Budget: ₹${(p.budget || 0).toLocaleString()} | Progress: **${p.progress}%**`
       ).join('\n');
 
-      const tasksTable = pendingTasks.map(t => 
+      const tasksTable = pendingTasks.map((t: Task & { project: Project; assignee: { firstName: string; lastName: string } | null }) => 
         `| ${t.title} | ${t.project.name} | ${t.assignee ? `${t.assignee.firstName} ${t.assignee.lastName}` : 'Unassigned'} | ${t.priority} | ${t.status} | ${t.dueDate ? new Date(t.dueDate).toLocaleDateString() : 'N/A'} |`
       ).join('\n');
 
@@ -143,15 +152,15 @@ ${tasksTable || '| No pending tasks | - | - | - | - | - |'}
         where: { organizationId: orgId }
       });
 
-      const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-      const paidRevenue = invoices.filter(i => i.status === 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
+      const totalInvoiced = invoices.reduce((sum: number, inv: Invoice & { client: Client }) => sum + inv.totalAmount, 0);
+      const paidRevenue = invoices.filter((i: Invoice & { client: Client }) => i.status === 'Paid').reduce((sum: number, inv: Invoice & { client: Client }) => sum + inv.totalAmount, 0);
       const outstandingAmount = totalInvoiced - paidRevenue;
       
-      const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalExpenses = expenses.reduce((sum: number, exp: Expense) => sum + exp.amount, 0);
       const netProfit = paidRevenue - totalExpenses;
 
-      const unpaidInvoices = invoices.filter(i => i.status !== 'Paid').slice(0, 5);
-      const unpaidTable = unpaidInvoices.map(i => 
+      const unpaidInvoices = invoices.filter((i: Invoice & { client: Client }) => i.status !== 'Paid').slice(0, 5);
+      const unpaidTable = unpaidInvoices.map((i: Invoice & { client: Client }) => 
         `| ${i.invoiceNumber} | ${i.client.companyName} | ₹${i.totalAmount.toLocaleString()} | ${i.dueDate ? new Date(i.dueDate).toLocaleDateString() : 'N/A'} | ${i.status} |`
       ).join('\n');
 
@@ -178,8 +187,8 @@ ${unpaidTable || '| All invoices are fully paid! | - | - | - | - |'}
         take: 10
       });
 
-      const clientsTable = clients.map(c => {
-        const unpaid = c.invoices.filter(i => i.status !== 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
+      const clientsTable = clients.map((c: Client & { projects: Project[]; invoices: Invoice[] }) => {
+        const unpaid = c.invoices.filter((i: Invoice) => i.status !== 'Paid').reduce((sum: number, inv: Invoice) => sum + inv.totalAmount, 0);
         return `| ${c.companyName} | ${c.website || 'N/A'} | ${c.projects.length} | ₹${unpaid.toLocaleString()} |`;
       }).join('\n');
 
@@ -198,9 +207,9 @@ ${clientsTable || '| No clients registered | - | - | - |'}`;
         include: { logs: { take: 3, orderBy: { executedAt: 'desc' } } }
       });
 
-      const automationsList = automations.map(a => 
+      const automationsList = automations.map((a: Automation & { logs: AutomationLog[] }) => 
         `* **${a.name}** (Trigger: \`${a.triggerType}\` ➡️ Action: \`${a.actionType}\`) - Status: ${a.isActive ? '🟢 Active' : '🔴 Paused'}
-  * *Recent Execs:* ${a.logs.map(l => `${new Date(l.executedAt).toLocaleTimeString()} (${l.status})`).join(', ') || 'Never triggered'}`
+  * *Recent Execs:* ${a.logs.map((l: AutomationLog) => `${new Date(l.executedAt).toLocaleTimeString()} (${l.status})`).join(', ') || 'Never triggered'}`
       ).join('\n');
 
       return `### ⚙️ Workspace Automations
@@ -212,7 +221,7 @@ ${automationsList || 'No automation rules configured yet.'}`;
     // 6. Entity Summarization (e.g. Acme Corp)
     // Check if user is asking about a specific client in the database
     const clientsList = await prisma.client.findMany({ where: { organizationId: orgId } });
-    const matchedClient = clientsList.find(c => msgLower.includes(c.companyName.toLowerCase()));
+    const matchedClient = clientsList.find((c: Client) => msgLower.includes(c.companyName.toLowerCase()));
 
     if (matchedClient || msgLower.includes('summarize')) {
       const targetClient = matchedClient || clientsList[0]; // Fallback to first if query has "summarize" without specific name
@@ -223,11 +232,11 @@ ${automationsList || 'No automation rules configured yet.'}`;
         });
 
         if (detailed) {
-          const unpaid = detailed.invoices.filter(i => i.status !== 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
-          const activeProjects = detailed.projects.filter(p => p.status === 'In Progress' || p.status === 'Review');
+          const unpaid = detailed.invoices.filter((i: Invoice) => i.status !== 'Paid').reduce((sum: number, inv: Invoice) => sum + inv.totalAmount, 0);
+          const activeProjects = detailed.projects.filter((p: Project) => p.status === 'In Progress' || p.status === 'Review');
           
           return `### 🔍 Account Summary: ${detailed.companyName}
-* **Active Projects:** ${activeProjects.map(p => `\`${p.name}\``).join(', ') || 'None'}
+* **Active Projects:** ${activeProjects.map((p: Project) => `\`${p.name}\``).join(', ') || 'None'}
 * **Total Projects Issued:** ${detailed.projects.length}
 * **GSTIN:** ${detailed.gstNumber || 'Not provided'}
 * **Invoice Balance:** ₹${unpaid.toLocaleString()} Outstanding

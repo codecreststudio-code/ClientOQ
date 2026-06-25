@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client } from 'google-auth-library';
 
-const SUPER_ADMIN_EMAILS = ['codecreststudio@gmail.com'];
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
 @Injectable()
 export class GoogleAuthService {
@@ -61,8 +61,8 @@ export class GoogleAuthService {
       }
 
       const bcrypt = await import('bcrypt');
-      // Random secure password since they use Google auth
-      const randomPass = require('crypto').randomBytes(32).toString('hex');
+      const crypto = await import('crypto');
+      const randomPass = crypto.randomBytes(32).toString('hex');
       const passwordHash = await bcrypt.hash(randomPass, 12);
 
       user = await this.prisma.user.create({

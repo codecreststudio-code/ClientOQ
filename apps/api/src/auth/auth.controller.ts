@@ -46,7 +46,7 @@ export class AuthController {
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: Response) {
     const success = await this.authService.verifyEmail(token);
-    const redirectUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'http://localhost:3000'}/?verified=${success}`;
+    const redirectUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'https://client-oq.vercel.app'}/?verified=${success}`;
     return res.redirect(redirectUrl);
   }
 

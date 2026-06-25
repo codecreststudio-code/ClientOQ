@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
@@ -7,6 +7,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('AuthService');
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -114,17 +116,17 @@ export class AuthService {
 
     // Dispatch welcome email asynchronously
     this.mailService.sendWelcomeEmail(user.email, `${firstName} ${lastName}`, orgName).catch(err => {
-      console.error('Failed to send welcome email:', err);
+      this.logger.error('Failed to send welcome email:', err);
     });
 
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'http://localhost:3000'}/api/auth/verify-email?token=${emailVerificationToken}`;
+    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'https://client-oq.vercel.app'}/api/auth/verify-email?token=${emailVerificationToken}`;
     this.mailService.sendMail(
       user.email,
       'Verify your AgencyOS email',
       `Hi ${firstName},\n\nWelcome to AgencyOS! Please click the link below to verify your email address:\n\n${verificationUrl}\n\nThank you,\nAgencyOS Team`
     ).catch(err => {
-      console.error('Failed to send verification email:', err);
+      this.logger.error('Failed to send verification email:', err);
     });
 
     const payload = {
@@ -228,16 +230,17 @@ export class AuthService {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    // Store token in UserSession table as reset record
+    // Store password reset token in a dedicated record via UserSession
     await this.prisma.userSession.create({
       data: {
         userId: user.id,
-        deviceInfo: `password-reset:${resetToken}`,
+        deviceInfo: 'password-reset',
+        ipAddress: resetToken,
         expiresAt,
       }
     });
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'http://localhost:3000'}/?auth=reset&token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'https://client-oq.vercel.app'}/?auth=reset&token=${resetToken}`;
 
     await this.mailService.sendMail(
       user.email,
@@ -253,16 +256,12 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 8 characters.');
     }
 
-    const session = await this.prisma.userSession.findFirst({
+    const sessions = await this.prisma.userSession.findMany({
       where: {
-        deviceInfo: { startsWith: 'password-reset:' },
+        deviceInfo: 'password-reset',
+        ipAddress: token,
         expiresAt: { gt: new Date() }
       }
-    });
-
-    // Find the one matching this token
-    const sessions = await this.prisma.userSession.findMany({
-      where: { deviceInfo: `password-reset:${token}`, expiresAt: { gt: new Date() } }
     });
 
     if (!sessions.length) {
@@ -335,7 +334,7 @@ export class AuthService {
       data: { emailVerificationToken }
     });
 
-    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'http://localhost:3000'}/api/auth/verify-email?token=${emailVerificationToken}`;
+    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'https://client-oq.vercel.app'}/api/auth/verify-email?token=${emailVerificationToken}`;
     
     await this.mailService.sendMail(
       user.email,

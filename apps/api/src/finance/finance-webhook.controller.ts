@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger, Headers, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { MailService } from '../mail/mail.service';
+import * as crypto from 'crypto';
 
 @Controller('api/finance/webhooks')
 export class FinanceWebhookController {
@@ -13,11 +14,24 @@ export class FinanceWebhookController {
 
   @Post('razorpay')
   @HttpCode(HttpStatus.OK)
-  async handleRazorpayWebhook(@Body() body: any) {
+  async handleRazorpayWebhook(@Body() body: any, @Headers('x-razorpay-signature') signature: string) {
     this.logger.log(`Received Razorpay Webhook Event: ${body.event}`);
 
     const event = body.event;
     if (event === 'payment.captured') {
+      // Verify webhook signature if Razorpay secret is configured
+      const razorpaySecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (razorpaySecret && signature) {
+        const expectedSignature = crypto
+          .createHmac('sha256', razorpaySecret)
+          .update(JSON.stringify(body))
+          .digest('hex');
+        if (expectedSignature !== signature) {
+          throw new UnauthorizedException('Invalid webhook signature');
+        }
+      } else if (razorpaySecret && !signature) {
+        this.logger.warn('Razorpay webhook signature missing but secret is configured');
+      }
       const paymentPayload = body.payload?.payment?.entity;
       if (!paymentPayload) {
         return { success: false, error: 'Malformed payload' };

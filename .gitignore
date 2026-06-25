@@ -19,14 +19,20 @@ build/
 *.sln
 *.sw?
 
-# Environment files
+# Environment files (ALL variants — never commit credentials)
 .env
 .env.local
+.env.development
 .env.development.local
-.env.test.local
+.env.production
 .env.production.local
+.env.staging
+.env.test
+.env.test.local
+.env.*
 *.env
-*.env.local
+*.env.*
+.envrc
 
 # Databases
 *.db
@@ -48,10 +54,18 @@ Thumbs.db
 
 /generated/prisma
 
-# Google OAuth credentials (NEVER commit)
+# Secrets and credentials (NEVER commit)
 client_secret_*.json
 google-credentials.json
 service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secret*
+*credential*
+*cred*
 
 # Agent/IDE configs and Scratch files
 .agents/

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
             from_email: email,
             org_name: org || 'N/A',
             message: message,
-            to_email: 'codecreststudion@gmail.com',
+            to_email: process.env.CONTACT_TO_EMAIL || 'support@client-oq.vercel.app',
           },
         }),
       });
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // Send the email
     await transporter.sendMail({
       from: `"${settings.systemName || 'Clientoq'} Contact Form" <${settings.smtpFrom || settings.smtpUser}>`,
-      to: 'codecreststudion@gmail.com', // Explicitly asked to send to this email
+      to: process.env.CONTACT_TO_EMAIL || 'support@client-oq.vercel.app',
       subject: `New Contact Inquiry from ${name}`,
       text: `
 You have received a new contact inquiry:

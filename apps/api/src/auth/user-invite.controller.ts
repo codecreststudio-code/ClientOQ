@@ -51,7 +51,7 @@ export class UserInviteController {
       }
     });
 
-    const inviteLink = `http://localhost:3000/?auth=register&inviteToken=${token}`;
+    const inviteLink = `${process.env.NEXT_PUBLIC_API_URL?.replace('3001', '3000') || 'https://client-oq.vercel.app'}/?auth=register&inviteToken=${token}`;
 
     await this.mailService.sendMail(
       email,
@@ -60,15 +60,13 @@ export class UserInviteController {
     );
 
     return {
-      message: 'Invitation generated successfully',
+      message: 'Invitation sent successfully',
       invite: {
         id: invite.id,
         email: invite.email,
         role: invite.role,
         status: invite.status,
         expiresAt: invite.expiresAt,
-        token: invite.token,
-        inviteLink
       }
     };
   }

@@ -14,14 +14,18 @@ export class WhatsappWebhookController {
     @Query('hub.challenge') challenge: string
   ) {
     this.logger.log(`Received WhatsApp Webhook Handshake verification query...`);
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'clientoq_secret_token_2026';
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
     
+    if (!verifyToken) {
+      this.logger.warn(`WhatsApp webhook verify token not configured — skipping verification check.`);
+      return challenge;
+    }
     if (mode === 'subscribe' && token === verifyToken) {
       this.logger.log(`WhatsApp Webhook verified successfully.`);
       return challenge;
     }
     
-    this.logger.warn(`WhatsApp Webhook verification failed. Received Token: ${token}`);
+    this.logger.warn(`WhatsApp Webhook verification failed.`);
     throw new ForbiddenException('Verification failed');
   }
 

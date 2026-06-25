@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const origin = req.nextUrl.origin || 'http://localhost:3000';
+    const origin = req.nextUrl.origin || 'https://client-oq.vercel.app';
     const inviteLink = `${origin}/?auth=register&inviteToken=${token}`;
     console.log(`[Email Mock Service] Sending invite email to ${email} with link: ${inviteLink}`);
 

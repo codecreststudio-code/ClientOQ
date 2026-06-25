@@ -5,6 +5,14 @@ import { api, getTenantSubdomain } from '../lib/api';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { setSentryUserContext } from '@/lib/sentry';
+import SmoothScroll from '../components/motion/SmoothScroll';
+import ParticleBackground from '../components/motion/ParticleBackground';
+import Magnetic from '../components/motion/Magnetic';
+import AnimatedNumber from '../components/motion/AnimatedNumber';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 import { 
   LayoutDashboard, 
   Users, 
@@ -71,11 +79,17 @@ const getThemeClasses = (themeColor: string) => {
 };
 
 export default function Home() {
+  // Animation refs for landing page hero
+  const statusRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const ctasRef = useRef<HTMLDivElement>(null);
+
   // Authentication State
   const [user, setUser] = useState<any>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
-  const [email, setEmail] = useState('syed@codecrest.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [orgName, setOrgName] = useState('');
@@ -113,7 +127,7 @@ export default function Home() {
   // SuperAdmin Platform Settings State
   const [platformSettings, setPlatformSettings] = useState({
     systemName: 'Clientoq',
-    supportEmail: 'support@clientoq.com',
+    supportEmail: 'support@client-oq.vercel.app',
     allowRegistration: true,
     maintenanceMode: false,
     stripeSecretKey: '',
@@ -332,8 +346,8 @@ export default function Home() {
 
   // Load Google Identity Services script
   useEffect(() => {
-    const GOOGLE_CLIENT_ID = '671624988330-qpu75rc9e8ju9uuna68q1qtick5nk0bk.apps.googleusercontent.com';
-    if (typeof window === 'undefined') return;
+    const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (typeof window === 'undefined' || !GOOGLE_CLIENT_ID) return;
     if (document.getElementById('google-gsi-script')) return;
     const script = document.createElement('script');
     script.id = 'google-gsi-script';
@@ -415,7 +429,7 @@ export default function Home() {
             localStorage.setItem('clientoq_user', JSON.stringify(data.user));
           }
         })
-        .catch(err => console.error('Failed to refresh user info:', err));
+        .catch(() => {});
     }
 
     // Check query params for auth triggers
@@ -554,6 +568,142 @@ export default function Home() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // Entrance Animations and ScrollTrigger Setup
+  useEffect(() => {
+    if (user) return; // Only run on public landing page
+
+    const ctx = gsap.context(() => {
+      // Hero Entrance Timeline
+      const tl = gsap.timeline({ defaults: { ease: 'power4.out', duration: 0.8 } });
+      
+      tl.fromTo('.hero-word', 
+        { y: '105%', opacity: 0 }, 
+        { y: '0%', opacity: 1, duration: 0.8, stagger: 0.08 }
+      )
+      .fromTo(statusRef.current, 
+        { opacity: 0, scale: 0.95, y: -10 }, 
+        { opacity: 1, scale: 1, y: 0, duration: 0.5 }, 
+        '-=0.6'
+      )
+      .fromTo(descRef.current, 
+        { opacity: 0, y: 15 }, 
+        { opacity: 1, y: 0, duration: 0.8 }, 
+        '-=0.4'
+      )
+      .fromTo(ctasRef.current ? ctasRef.current.children : [], 
+        { opacity: 0, scale: 0.9, y: 10 }, 
+        { opacity: 1, scale: 1, y: 0, duration: 0.6, stagger: 0.1 }, 
+        '-=0.6'
+      );
+
+      // Bento Feature Cards Stagger Reveal on Scroll
+      gsap.fromTo('.bento-card', 
+        { opacity: 0, y: 30 }, 
+        { 
+          opacity: 1, 
+          y: 0, 
+          duration: 0.8, 
+          stagger: 0.12, 
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '#features',
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+
+      // How It Works Steps Stagger Reveal
+      gsap.fromTo('.how-step', 
+        { opacity: 0, y: 40, scale: 0.95 }, 
+        { 
+          opacity: 1, 
+          y: 0, 
+          scale: 1,
+          duration: 0.7, 
+          stagger: 0.15, 
+          ease: 'back.out(1.5)',
+          scrollTrigger: {
+            trigger: '#how-it-works',
+            start: 'top 75%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+
+      // Stats Cards Reveal
+      gsap.fromTo('.stats-card', 
+        { opacity: 0, y: 25, scale: 0.9 }, 
+        { 
+          opacity: 1, 
+          y: 0, 
+          scale: 1,
+          duration: 0.6, 
+          stagger: 0.1, 
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: '#stats',
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+
+      // Testimonials Cards Stagger Reveal
+      gsap.fromTo('.testimonial-card', 
+        { opacity: 0, y: 35 }, 
+        { 
+          opacity: 1, 
+          y: 0, 
+          duration: 0.7, 
+          stagger: 0.12, 
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '#testimonials',
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+
+      // Pricing Cards Stagger Reveal on Scroll
+      gsap.fromTo('.pricing-card', 
+        { opacity: 0, y: 35 }, 
+        { 
+          opacity: 1, 
+          y: 0, 
+          duration: 0.8, 
+          stagger: 0.12, 
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '#pricing',
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+
+      // FAQ Items Reveal
+      gsap.fromTo('.faq-item', 
+        { opacity: 0, x: -20 }, 
+        { 
+          opacity: 1, 
+          x: 0,
+          duration: 0.5, 
+          stagger: 0.08, 
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: '#faq',
+            start: 'top 80%',
+            toggleActions: 'play none none none',
+          }
+        }
+      );
+    });
+
+    return () => ctx.revert();
+  }, [user]);
 
   const refreshData = async () => {
     setDataLoading(true);
@@ -697,7 +847,7 @@ export default function Home() {
       if (data) {
         setPlatformSettings({
           systemName: data.systemName || 'Clientoq',
-          supportEmail: data.supportEmail || 'support@clientoq.com',
+          supportEmail: data.supportEmail || 'support@client-oq.vercel.app',
           allowRegistration: data.allowRegistration ?? true,
           maintenanceMode: data.maintenanceMode ?? false,
           stripeSecretKey: data.stripeSecretKey || '',
@@ -733,7 +883,7 @@ export default function Home() {
         if (res.settings) {
           setPlatformSettings({
             systemName: res.settings.systemName || 'Clientoq',
-            supportEmail: res.settings.supportEmail || 'support@clientoq.com',
+            supportEmail: res.settings.supportEmail || 'support@client-oq.vercel.app',
             allowRegistration: res.settings.allowRegistration ?? true,
             maintenanceMode: res.settings.maintenanceMode ?? false,
             stripeSecretKey: res.settings.stripeSecretKey || '',
@@ -1336,7 +1486,7 @@ Looking forward to hearing from you.
 
 Best regards,
 ${user?.firstName || 'Syed'} ${user?.lastName || 'Ali'}
-${user?.organizationName || 'CodeCrest Studio'}`;
+${user?.organizationName || 'Acme Studio'}`;
     setAiEmailDraft(draft);
     setShowAIEmailModal(true);
   };
@@ -1552,328 +1702,767 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
               {/* Landing Page Navigation */}
               <Header onLaunchConsole={() => { setShowAuthModal(true); setAuthMode('login'); setAuthError(''); }} />
 
-          {/* Hero Section */}
-          <section className="py-20 px-8 text-center max-w-4xl mx-auto flex flex-col items-center gap-6 z-10 relative">
-            <div className="border border-hairline bg-canvas-soft text-mute font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full">
-              [ STATUS: STABLE DEVELOPMENT V2.0 ]
-            </div>
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
-              The Quietly Confident <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-mute to-body-text">
-                Business Canvas for Agencies.
-              </span>
-            </h1>
-            <p className="text-body-text text-sm md:text-base max-w-2xl font-sans mt-2">
-              Run your CRM pipelines, active sprints, automated WhatsApp outreach, and multi-currency billing in a single warm-charcoal workspace. Zero fluff, absolute control.
-            </p>
-            <div className="flex items-center gap-4 mt-6">
-              <button
-                onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95 shadow-sm"
-              >
-                Start Free Trial
-              </button>
-              <a
-                href="#sandbox"
-                className="border border-hairline hover:bg-canvas-soft text-ink text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95"
-              >
-                Explore Sandbox
-              </a>
-            </div>
-          </section>
+              <SmoothScroll>
+                {/* Hero Section */}
+                <section className="py-20 px-8 text-center max-w-4xl mx-auto flex flex-col items-center gap-6 z-10 relative">
+                  <ParticleBackground />
+                  
+                  <div ref={statusRef} className="border border-hairline bg-canvas-soft text-mute font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full select-none" style={{ opacity: 0 }}>
+                    [ STATUS: STABLE DEVELOPMENT V2.0 ]
+                  </div>
+                  
+                  <h1 ref={titleRef} className="text-4xl md:text-6xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
+                    <span className="inline-block overflow-hidden py-1">
+                      <span className="hero-word inline-block" style={{ opacity: 0 }}>The</span>
+                    </span>{' '}
+                    <span className="inline-block overflow-hidden py-1">
+                      <span className="hero-word inline-block" style={{ opacity: 0 }}>Quietly</span>
+                    </span>{' '}
+                    <span className="inline-block overflow-hidden py-1">
+                      <span className="hero-word inline-block" style={{ opacity: 0 }}>Confident</span>
+                    </span>{' '}
+                    <br/>
+                    <span className="inline-block overflow-hidden py-1">
+                      <span className="hero-word inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-mute to-body-text" style={{ opacity: 0 }}>
+                        Business Canvas for Agencies.
+                      </span>
+                    </span>
+                  </h1>
+                  
+                  <p ref={descRef} className="text-body-text text-sm md:text-base max-w-2xl font-sans mt-2" style={{ opacity: 0 }}>
+                    Run your CRM pipelines, active sprints, automated WhatsApp outreach, and multi-currency billing in a single warm-charcoal workspace. Zero fluff, absolute control.
+                  </p>
+                  
+                  <div ref={ctasRef} className="flex items-center gap-4 mt-6" style={{ opacity: 0 }}>
+                    <Magnetic>
+                      <button
+                        onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                        className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+                      >
+                        Start Free Trial
+                      </button>
+                    </Magnetic>
+                    
+                    <Magnetic>
+                      <a
+                        href="#sandbox"
+                        className="border border-hairline hover:bg-canvas-soft text-ink text-xs font-bold px-6 py-3 rounded-full font-sans uppercase tracking-widest transition-all active:scale-95 bg-canvas/30"
+                      >
+                        Explore Sandbox
+                      </a>
+                    </Magnetic>
+                  </div>
+                </section>
 
-          {/* Sandbox Interactive Demo Section */}
-          <section id="sandbox" className="py-16 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
-            <div className="text-center mb-10">
-              <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Active Workspace Sandbox</h2>
-              <p className="text-mute text-xs mt-1">Interact with our live operational preview tabs directly</p>
-            </div>
+                {/* Sandbox Interactive Demo Section */}
+                <section id="sandbox" className="py-16 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
+                  <div className="text-center mb-10">
+                    <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Active Workspace Sandbox</h2>
+                    <p className="text-mute text-xs mt-1">Interact with our live operational preview tabs directly</p>
+                  </div>
 
-            <div className="bg-canvas-soft border border-hairline rounded-md overflow-hidden shadow-2xl flex flex-col h-[480px]">
-              {/* Terminal Title Bar */}
-              <div className="bg-canvas border-b border-hairline px-6 py-3 flex items-center justify-between font-mono text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-hairline"></div>
-                  <span className="text-[10px] text-mute uppercase tracking-wider">clientoq_sandbox_session.sh</span>
-                </div>
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setSandboxTab('dashboard')} 
-                    className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
-                  >
-                    Dashboard
-                  </button>
-                  <button 
-                    onClick={() => setSandboxTab('crm')} 
-                    className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'crm' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
-                  >
-                    CRM Pipeline
-                  </button>
-                  <button 
-                    onClick={() => setSandboxTab('finance')} 
-                    className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'finance' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
-                  >
-                    Invoices Ledger
-                  </button>
-                </div>
-              </div>
-
-              {/* Sandbox Tab Content Viewport */}
-              <div className="flex-1 p-6 overflow-y-auto bg-canvas-soft/40 font-mono text-xs">
-                
-                {sandboxTab === 'dashboard' && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="border border-hairline p-4 rounded bg-canvas/40">
-                        <span className="text-[10px] text-mute uppercase tracking-wider">Total Revenue</span>
-                        <div className="text-xl font-bold mt-1 text-ink">₹1,20,000</div>
-                        <span className="text-[9px] text-green-400">▲ +12% this month</span>
+                  <div className="bg-canvas-soft border border-hairline rounded-md overflow-hidden shadow-2xl flex flex-col h-[480px]">
+                    {/* Terminal Title Bar */}
+                    <div className="bg-canvas border-b border-hairline px-6 py-3 flex items-center justify-between font-mono text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-hairline"></div>
+                        <span className="text-[10px] text-mute uppercase tracking-wider">clientoq_sandbox_session.sh</span>
                       </div>
-                      <div className="border border-hairline p-4 rounded bg-canvas/40">
-                        <span className="text-[10px] text-mute uppercase tracking-wider">Active Projects</span>
-                        <div className="text-xl font-bold mt-1 text-ink">3 Sprints</div>
-                        <span className="text-[9px] text-mute">60% Avg Progress</span>
-                      </div>
-                      <div className="border border-hairline p-4 rounded bg-canvas/40">
-                        <span className="text-[10px] text-mute uppercase tracking-wider">Clients Log</span>
-                        <div className="text-xl font-bold mt-1 text-ink">8 Active</div>
-                        <span className="text-[9px] text-primary">⚡ 2 webhooks online</span>
+                      <div className="flex gap-4">
+                        <button 
+                          onClick={() => setSandboxTab('dashboard')} 
+                          className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
+                        >
+                          Dashboard
+                        </button>
+                        <button 
+                          onClick={() => setSandboxTab('crm')} 
+                          className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'crm' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
+                        >
+                          CRM Pipeline
+                        </button>
+                        <button 
+                          onClick={() => setSandboxTab('finance')} 
+                          className={`pb-1 uppercase tracking-wider text-[10px] font-bold border-b-2 transition-all ${sandboxTab === 'finance' ? 'border-primary text-primary' : 'border-transparent text-mute hover:text-ink'}`}
+                        >
+                          Invoices Ledger
+                        </button>
                       </div>
                     </div>
 
-                    <div className="border border-hairline p-4 rounded bg-canvas/30 space-y-2">
-                      <span className="block text-[10px] text-mute uppercase tracking-wider">Workspace Live feed</span>
-                      <div className="space-y-1 text-[11px]">
-                        <div className="text-mute">[16:40:12] CRM: Qualified Sarah Jenkins at estimated value ₹1,20,000.</div>
-                        <div className="text-mute">[15:21:45] FINANCE: Stripe invoice INV-2026-002 settled automatically.</div>
-                        <div className="text-mute">[12:05:00] WHATSAPP: Outbound broadcast triggered for new onboarding pack.</div>
+                    {/* Sandbox Tab Content Viewport */}
+                    <div className="flex-1 p-6 overflow-y-auto bg-canvas-soft/40 font-mono text-xs">
+                      
+                      {sandboxTab === 'dashboard' && (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="border border-hairline p-4 rounded bg-canvas/40">
+                              <span className="text-[10px] text-mute uppercase tracking-wider">Total Revenue</span>
+                              <div className="text-xl font-bold mt-1 text-ink">
+                                <AnimatedNumber value={120000} prefix="₹" />
+                              </div>
+                              <span className="text-[9px] text-green-400">▲ +12% this month</span>
+                            </div>
+                            <div className="border border-hairline p-4 rounded bg-canvas/40">
+                              <span className="text-[10px] text-mute uppercase tracking-wider">Active Projects</span>
+                              <div className="text-xl font-bold mt-1 text-ink">
+                                <AnimatedNumber value={3} suffix=" Sprints" />
+                              </div>
+                              <span className="text-[9px] text-mute">60% Avg Progress</span>
+                            </div>
+                            <div className="border border-hairline p-4 rounded bg-canvas/40">
+                              <span className="text-[10px] text-mute uppercase tracking-wider">Clients Log</span>
+                              <div className="text-xl font-bold mt-1 text-ink">
+                                <AnimatedNumber value={8} suffix=" Active" />
+                              </div>
+                              <span className="text-[9px] text-primary">⚡ 2 webhooks online</span>
+                            </div>
+                          </div>
+
+                          <div className="border border-hairline p-4 rounded bg-canvas/30 space-y-2">
+                            <span className="block text-[10px] text-mute uppercase tracking-wider">Workspace Live feed</span>
+                            <div className="space-y-1 text-[11px]">
+                              <div className="text-mute">[16:40:12] CRM: Qualified Sarah Jenkins at estimated value ₹1,20,000.</div>
+                              <div className="text-mute">[15:21:45] FINANCE: Stripe invoice INV-2026-002 settled automatically.</div>
+                              <div className="text-mute">[12:05:00] WHATSAPP: Outbound broadcast triggered for new onboarding pack.</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxTab === 'crm' && (
+                        <div className="grid grid-cols-3 gap-4 h-full">
+                          <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
+                            <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">New Leads</div>
+                            <div className="p-3 flex-1 space-y-3 overflow-y-auto">
+                              <div className="border border-hairline p-3 rounded bg-canvas-soft">
+                                <span className="font-bold text-ink">David Miller</span>
+                                <p className="text-[9px] text-mute mt-1">Miller Media • Google Search</p>
+                                <div className="text-[10px] text-primary mt-2">₹75,000</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
+                            <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">Qualified</div>
+                            <div className="p-3 flex-1 space-y-3 overflow-y-auto">
+                              <div className="border border-hairline p-3 rounded bg-canvas-soft">
+                                <span className="font-bold text-ink">Sarah Jenkins</span>
+                                <p className="text-[9px] text-mute mt-1">Apex Corp • Referral</p>
+                                <div className="text-[10px] text-primary mt-2">₹1,20,000</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
+                            <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">Proposal Sent</div>
+                            <div className="p-3 flex-grow flex items-center justify-center border border-dashed border-hairline/50 m-3 rounded text-[10px] text-mute">
+                              Drag leads here to update
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxTab === 'finance' && (
+                        <div className="space-y-4">
+                          <span className="block text-[10px] text-mute uppercase tracking-wider">Billing Ledger Ledger</span>
+                          <div className="border border-hairline rounded overflow-hidden">
+                            <table className="w-full text-[11px] text-left border-collapse">
+                              <thead>
+                                <tr className="bg-canvas/40 border-b border-hairline text-mute">
+                                  <th className="p-3">Invoice Number</th>
+                                  <th className="p-3">Client</th>
+                                  <th className="p-3">Total Amount</th>
+                                  <th className="p-3">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-hairline/30 bg-canvas/10">
+                                <tr>
+                                  <td className="p-3 font-semibold">INV-2026-001</td>
+                                  <td className="p-3 text-mute">Acme Corporation</td>
+                                  <td className="p-3 font-bold text-primary">₹47,200</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 bg-yellow-950 text-yellow-300 font-bold uppercase text-[9px] rounded-xs">Sent</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="p-3 font-semibold">INV-2026-002</td>
+                                  <td className="p-3 text-mute">Acme Corporation</td>
+                                  <td className="p-3 font-bold text-primary">₹11,800</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 bg-green-950 text-green-300 font-bold uppercase text-[9px] rounded-xs">Paid</span>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                    <div className="border-t border-hairline bg-canvas p-4 text-center">
+                      <Magnetic>
+                        <button
+                          onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                          className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-6 py-2.5 rounded-full uppercase tracking-widest font-sans active:scale-95 shadow-sm"
+                        >
+                          Create Your Custom Console
+                        </button>
+                      </Magnetic>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Bento Feature Section */}
+                <section id="features" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
+                  <div className="text-center mb-16">
+                    <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Built For Acceleration</h2>
+                    <h3 className="text-2xl font-bold tracking-tight text-ink mt-2">Fully Integrated Modular Architecture</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Feature 1 */}
+                    <div className="bento-card bg-canvas-soft border border-hairline p-6 rounded-md md:col-span-2 flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                      <div>
+                        <div className="text-2xl mb-4">⚡</div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono">Prospect Pipeline Management</h4>
+                        <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
+                          Capture customer leads, record follow-up history, and log contact activity logs. Transition qualified deals into operational workspaces.
+                        </p>
+                      </div>
+                      <div className="h-px bg-hairline my-6"></div>
+                      <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Includes drag-and-drop stages</div>
+                    </div>
+
+                    {/* Feature 2 */}
+                    <div className="bento-card bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                      <div>
+                        <div className="text-2xl mb-4">💬</div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono">Integrated WhatsApp Messaging</h4>
+                        <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
+                          Dispatch automated template notifications when payment invoices are sent, monitor replies, and interact using a shared team inbox node.
+                        </p>
+                      </div>
+                      <div className="h-px bg-hairline my-6"></div>
+                      <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Meta API compliant templates</div>
+                    </div>
+
+                    {/* Feature 3 */}
+                    <div className="bento-card bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                      <div>
+                        <div className="text-2xl mb-4">💰</div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono">Automated Financial Ledger</h4>
+                        <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
+                          Establish professional custom invoices, track billing states, and log agency expenses inside a unified financial register.
+                        </p>
+                      </div>
+                      <div className="h-px bg-hairline my-6"></div>
+                      <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Multi-currency supported</div>
+                    </div>
+
+                    {/* Feature 4 */}
+                    <div className="bento-card bg-canvas-soft border border-hairline p-6 rounded-md md:col-span-2 flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                      <div>
+                        <div className="text-2xl mb-4">🧠</div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono">Clientoq Core AI Assistant</h4>
+                        <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
+                          Leverage standard LLM context to draft proposals, map task schedules from descriptions, generate code files, and compute agency margins.
+                        </p>
+                      </div>
+                      <div className="h-px bg-hairline my-6"></div>
+                      <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Powered by customized prompts</div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Comparison / Workspace Shift Section */}
+                <section className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative border-t border-hairline/60">
+                  <div className="text-center mb-16">
+                    <span className="text-xs font-mono uppercase font-bold text-primary tracking-widest">[ Efficiency Matrix ]</span>
+                    <h3 className="text-2xl font-bold tracking-tight text-ink mt-2">Unified Workstation vs. Scattered SaaS Chaos</h3>
+                    <p className="text-mute text-xs mt-1">Stop paying for five separate tools. Run everything on one canvas.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Scattered Chaos Card */}
+                    <div className="bg-canvas-soft/40 border border-hairline p-8 rounded-md flex flex-col justify-between hover:border-red-500/20 transition-all duration-300">
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                          <span className="font-mono text-[10px] text-mute uppercase tracking-wider">Traditional Fragmented Operations</span>
+                        </div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono mb-4">The Scattered Stack</h4>
+                        <ul className="space-y-3.5 text-xs text-body-text">
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-red-400 font-bold">✕</span> HubSpot for CRM (Isolated contacts)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-red-400 font-bold">✕</span> Jira/Linear for Sprints (No client access)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-red-400 font-bold">✕</span> Stripe for Invoices (Manual status updates)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-red-400 font-bold">✕</span> WhatsApp Business (No shared inbox nodes)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-red-400 font-bold">✕</span> Spreadsheets (Messy manual synchronization)
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="mt-8 pt-6 border-t border-hairline text-[10px] text-mute font-mono uppercase tracking-wider">
+                        Result: Constant context-switching & high monthly bills
+                      </div>
+                    </div>
+
+                    {/* Clientoq Unified Card */}
+                    <div className="bg-primary/5 border-2 border-primary p-8 rounded-md flex flex-col justify-between hover:shadow-xl transition-all duration-300 relative">
+                      <span className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-on-primary text-[8px] font-mono font-bold uppercase tracking-widest px-3 py-1 rounded-sm">
+                        100% UNIFIED
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                          <span className="font-mono text-[10px] text-primary uppercase tracking-wider">Clientoq Monolith Solution</span>
+                        </div>
+                        <h4 className="text-base font-bold text-ink uppercase font-mono mb-4">The Clientoq Canvas</h4>
+                        <ul className="space-y-3.5 text-xs text-body-text">
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-primary font-bold">✓</span> Connected Contacts (CRM directly links to projects)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-primary font-bold">✓</span> Collaborative Workspaces (Agile sprints with client view)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-primary font-bold">✓</span> Automated Invoicing (Collect fees via built-in gateway)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-primary font-bold">✓</span> Shared WhatsApp Inbox (All client replies in one node)
+                          </li>
+                          <li className="flex items-center gap-2.5">
+                            <span className="text-primary font-bold">✓</span> AI Assistant Briefs (Quick project scopes and calculations)
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="mt-8 pt-6 border-t border-primary/20 text-[10px] text-primary font-mono uppercase tracking-wider">
+                        Result: Single flat dashboard & zero manual data sync
                       </div>
                     </div>
                   </div>
-                )}
+                </section>
 
-                {sandboxTab === 'crm' && (
-                  <div className="grid grid-cols-3 gap-4 h-full">
-                    <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
-                      <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">New Leads</div>
-                      <div className="p-3 flex-1 space-y-3 overflow-y-auto">
-                        <div className="border border-hairline p-3 rounded bg-canvas-soft">
-                          <span className="font-bold text-ink">David Miller</span>
-                          <p className="text-[9px] text-mute mt-1">Miller Media • Google Search</p>
-                          <div className="text-[10px] text-primary mt-2">₹75,000</div>
+                {/* How It Works Section */}
+                <section id="how-it-works" className="py-24 px-8 max-w-5xl mx-auto w-full z-10 relative border-t border-hairline/60 scroll-mt-16">
+                  <div className="text-center mb-16">
+                    <span className="text-xs font-mono uppercase font-bold text-primary tracking-widest">[ Workflow ]</span>
+                    <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-ink mt-2">From Lead to Payment in 4 Steps</h3>
+                    <p className="text-mute text-xs mt-2 max-w-xl mx-auto">Everything you need to run your agency operations smoothly, all in one place.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
+                    {/* Connecting Line */}
+                    <div className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-primary via-mute to-primary opacity-20"></div>
+                    
+                    {/* Step 1 */}
+                    <div className="how-step text-center relative">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary mx-auto mb-4 flex items-center justify-center relative z-10">
+                        <span className="text-2xl">📥</span>
+                        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">1</span>
+                      </div>
+                      <h4 className="font-mono text-xs uppercase tracking-wider text-primary mb-2">Capture Leads</h4>
+                      <p className="text-body-text text-[11px] leading-relaxed">Import leads from forms, referrals, or campaigns. Assign values and track source attribution instantly.</p>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="how-step text-center relative">
+                      <div className="w-16 h-16 rounded-full bg-orange-500/10 border-2 border-orange-500 mx-auto mb-4 flex items-center justify-center relative z-10">
+                        <span className="text-2xl">🎯</span>
+                        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">2</span>
+                      </div>
+                      <h4 className="font-mono text-xs uppercase tracking-wider text-orange-500 mb-2">Qualify & Propose</h4>
+                      <p className="text-body-text text-[11px] leading-relaxed">Score leads with AI, draft proposals, and send custom quotes — all from the CRM dashboard.</p>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="how-step text-center relative">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500 mx-auto mb-4 flex items-center justify-center relative z-10">
+                        <span className="text-2xl">🚀</span>
+                        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">3</span>
+                      </div>
+                      <h4 className="font-mono text-xs uppercase tracking-wider text-emerald-500 mb-2">Deliver Projects</h4>
+                      <p className="text-body-text text-[11px] leading-relaxed">Manage sprints, track time, share milestone updates, and collaborate with clients via dedicated portal.</p>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="how-step text-center relative">
+                      <div className="w-16 h-16 rounded-full bg-violet-500/10 border-2 border-violet-500 mx-auto mb-4 flex items-center justify-center relative z-10">
+                        <span className="text-2xl">💰</span>
+                        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center">4</span>
+                      </div>
+                      <h4 className="font-mono text-xs uppercase tracking-wider text-violet-500 mb-2">Invoice & Collect</h4>
+                      <p className="text-body-text text-[11px] leading-relaxed">Generate professional invoices, send WhatsApp reminders, and collect payments via integrated gateway.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-16 bg-canvas-soft border border-hairline rounded-lg p-8 text-center">
+                    <div className="flex flex-wrap justify-center gap-8 mb-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary text-lg">⚡</span>
+                        <span className="text-xs font-mono text-mute">AI-Powered Lead Scoring</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-orange-500 text-lg">📊</span>
+                        <span className="text-xs font-mono text-mute">Real-time Dashboards</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-500 text-lg">🔗</span>
+                        <span className="text-xs font-mono text-mute">WhatsApp Integration</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-violet-500 text-lg">🛡️</span>
+                        <span className="text-xs font-mono text-mute">Secure Data Handling</span>
+                      </div>
+                    </div>
+                    <Magnetic>
+                      <button
+                        onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                        className="bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-8 py-3 rounded-full font-mono uppercase tracking-widest transition-all active:scale-95"
+                      >
+                        Start Your Free Trial →
+                      </button>
+                    </Magnetic>
+                  </div>
+                </section>
+
+                {/* Stats / Social Proof Section */}
+                <section id="stats" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative border-t border-hairline/60">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="stats-card bg-canvas-soft border border-hairline p-6 rounded-md text-center hover:border-primary/30 transition-all duration-300 hover:-translate-y-1">
+                      <div className="text-3xl md:text-4xl font-extrabold text-primary font-mono mb-1">
+                        <AnimatedNumber value={2400} suffix="+" />
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mute">Active Agencies</span>
+                    </div>
+                    <div className="stats-card bg-canvas-soft border border-hairline p-6 rounded-md text-center hover:border-primary/30 transition-all duration-300 hover:-translate-y-1">
+                      <div className="text-3xl md:text-4xl font-extrabold text-ink font-mono mb-1">
+                        <AnimatedNumber value={18} prefix="₹" suffix="L+" />
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mute">Monthly Revenue Tracked</span>
+                    </div>
+                    <div className="stats-card bg-canvas-soft border border-hairline p-6 rounded-md text-center hover:border-primary/30 transition-all duration-300 hover:-translate-y-1">
+                      <div className="text-3xl md:text-4xl font-extrabold text-ink font-mono mb-1">
+                        <AnimatedNumber value={50} suffix="K+" />
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mute">Invoices Processed</span>
+                    </div>
+                    <div className="stats-card bg-canvas-soft border border-hairline p-6 rounded-md text-center hover:border-primary/30 transition-all duration-300 hover:-translate-y-1">
+                      <div className="text-3xl md:text-4xl font-extrabold text-emerald-500 font-mono mb-1">
+                        <AnimatedNumber value={98} suffix="%" />
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mute">Client Retention Rate</span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Client Portal Highlight Section */}
+                <section className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative border-t border-hairline/60">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+                    
+                    {/* Left Column: Visual Showcase mock */}
+                    <div className="md:col-span-6 space-y-4">
+                      <div className="bg-canvas-soft border border-hairline rounded-lg overflow-hidden shadow-2xl starbucks-shadow">
+                        {/* Browser Header */}
+                        <div className="bg-canvas border-b border-hairline px-4 py-2.5 flex items-center justify-between text-[9px] font-mono text-mute">
+                          <div className="flex gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-hairline"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-hairline"></span>
+                          </div>
+                          <span>apex.client-oq.vercel.app/portal/dashboard</span>
+                          <span className="opacity-0">Q</span>
+                        </div>
+                        
+                        {/* Client Portal mock body */}
+                        <div className="p-5 bg-canvas/30 space-y-4">
+                          {/* Header */}
+                          <div className="flex justify-between items-center pb-3 border-b border-hairline/40">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center font-bold text-white text-[8px]">Q</div>
+                              <span className="font-mono font-bold text-[10px]">Apex Agency Portal</span>
+                            </div>
+                            <span className="text-[9px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold font-mono">Client View</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="bg-canvas-soft border border-hairline/40 p-3 rounded space-y-2">
+                            <div className="flex justify-between text-[9px] font-mono">
+                              <span className="text-ink">Web Application Sprint v2</span>
+                              <span className="text-primary font-bold">75% Complete</span>
+                            </div>
+                            <div className="w-full bg-canvas h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-primary h-full rounded-full" style={{ width: '75%' }}></div>
+                            </div>
+                          </div>
+
+                          {/* Invoices list */}
+                          <div className="space-y-1.5">
+                            <span className="block text-[8px] font-mono text-mute uppercase tracking-wider">Unsettled Payments</span>
+                            <div className="bg-canvas border border-hairline/40 p-2.5 rounded flex justify-between items-center text-[9px] font-mono">
+                              <div>
+                                <span className="font-bold text-ink">INV-2026-004</span>
+                                <p className="text-[8px] text-mute mt-0.5">Development Milestones 2 & 3</p>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-primary block">₹45,000</span>
+                                <span className="text-[7px] text-orange-500 font-bold uppercase">Pay Invoice →</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
-                      <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">Qualified</div>
-                      <div className="p-3 flex-1 space-y-3 overflow-y-auto">
-                        <div className="border border-hairline p-3 rounded bg-canvas-soft">
-                          <span className="font-bold text-ink">Sarah Jenkins</span>
-                          <p className="text-[9px] text-mute mt-1">Apex Corp • Referral</p>
-                          <div className="text-[10px] text-primary mt-2">₹1,20,000</div>
+                    {/* Right Column: Descriptions */}
+                    <div className="md:col-span-6 space-y-6">
+                      <span className="text-xs font-mono uppercase font-bold text-primary tracking-widest">[ Whitelabel Branding ]</span>
+                      <h3 className="text-2xl font-bold tracking-tight text-ink font-serif italic">
+                        Provide Your Clients With A Premium Portal Experience
+                      </h3>
+                      <p className="text-body-text text-xs leading-relaxed font-sans">
+                        Onboard clients onto a dedicated sub-domain customized with your logo, colors, and branding elements. Clients can monitor live project tasks, download deliverables, and clear outstanding balances through a self-service interface.
+                      </p>
+                      <div className="space-y-3 font-sans text-xs">
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-primary font-bold mt-0.5">✓</span>
+                          <div>
+                            <strong>Dynamic Rewrite Routing:</strong> Map custom domains or tenant names (e.g., <code>youragency.client-oq.vercel.app</code>) without external configuration.
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-primary font-bold mt-0.5">✓</span>
+                          <div>
+                            <strong>Self-Service Checkout:</strong> Integrated Razorpay checkout gateways transfer payments directly into your account coordinates instantly.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Testimonials Section */}
+                <section id="testimonials" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative border-t border-hairline/60">
+                  <div className="text-center mb-16">
+                    <span className="text-xs font-mono uppercase font-bold text-primary tracking-widest">[ Success Stories ]</span>
+                    <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-ink mt-2">Trusted by Agencies Across India</h3>
+                    <p className="text-mute text-xs mt-2 max-w-xl mx-auto">See how our users transformed their client operations.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Testimonial 1 */}
+                    <div className="testimonial-card bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} className="text-primary text-sm">★</span>
+                        ))}
+                      </div>
+                      <p className="text-body-text text-xs leading-relaxed font-serif italic flex-1 mb-4">
+                        "Clientoq replaced four different tools for us. We track leads, manage projects, and invoice clients without any manual data entry. The WhatsApp integration alone saves us 2 hours daily."
+                      </p>
+                      <div className="flex items-center gap-3 pt-4 border-t border-hairline/50">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-white text-xs font-bold">R</div>
+                        <div>
+                          <span className="text-xs font-bold text-ink block">Rahul Mehta</span>
+                          <span className="text-[10px] text-mute">Founder, PixelCraft Studios</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="border border-hairline/60 rounded bg-canvas/20 flex flex-col">
-                      <div className="p-3 border-b border-hairline font-bold uppercase tracking-wider text-[10px] text-mute bg-canvas/30">Proposal Sent</div>
-                      <div className="p-3 flex-grow flex items-center justify-center border border-dashed border-hairline/50 m-3 rounded text-[10px] text-mute">
-                        Drag leads here to update
+                    {/* Testimonial 2 */}
+                    <div className="testimonial-card bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} className="text-primary text-sm">★</span>
+                        ))}
+                      </div>
+                      <p className="text-body-text text-xs leading-relaxed font-serif italic flex-1 mb-4">
+                        "The client portal is a game-changer. My clients love seeing real-time project progress and being able to pay invoices with one click. Professional and seamless."
+                      </p>
+                      <div className="flex items-center gap-3 pt-4 border-t border-hairline/50">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs font-bold">S</div>
+                        <div>
+                          <span className="text-xs font-bold text-ink block">Sneha Patel</span>
+                          <span className="text-[10px] text-mute">Director, NovaByte Solutions</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Testimonial 3 */}
+                    <div className="testimonial-card bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} className="text-primary text-sm">★</span>
+                        ))}
+                      </div>
+                      <p className="text-body-text text-xs leading-relaxed font-serif italic flex-1 mb-4">
+                        "Finally, an Indian-focused tool with GST invoicing built-in. The AI assistant helps me draft proposals in minutes, not hours. Worth every rupee of the subscription."
+                      </p>
+                      <div className="flex items-center gap-3 pt-4 border-t border-hairline/50">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">A</div>
+                        <div>
+                          <span className="text-xs font-bold text-ink block">Arjun Sharma</span>
+                          <span className="text-[10px] text-mute">CEO, Crescents Digital</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                )}
+                </section>
 
-                {sandboxTab === 'finance' && (
+                {/* Pricing Section */}
+                <section id="pricing" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
+                  <div className="text-center mb-16">
+                    <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Transparent Tiers</h2>
+                    <h3 className="text-2xl font-bold tracking-tight text-ink mt-2">Choose Plan Fitting Your Scale</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Plan 1 */}
+                    <div className="pricing-card bg-canvas-soft border border-hairline p-8 rounded-md flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md relative">
+                      <div>
+                        <h4 className="font-mono text-xs uppercase tracking-wider text-mute mb-2">Basic</h4>
+                        <div className="text-3xl font-extrabold text-ink font-mono">₹0</div>
+                        <span className="text-[9px] text-mute uppercase font-mono">Lifetime Free for Solo Ops</span>
+                        <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
+                          <li>• Local SQLite file database</li>
+                          <li>• 1 active workspace tenant</li>
+                          <li>• 10 AI assistant prompts / mo</li>
+                          <li>• Basic manual invoices creator</li>
+                        </ul>
+                      </div>
+                      <Magnetic>
+                        <button
+                          onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                          className="w-full mt-8 border border-hairline hover:bg-canvas text-ink text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer bg-canvas/30"
+                        >
+                          Choose Basic
+                        </button>
+                      </Magnetic>
+                    </div>
+
+                    {/* Plan 2 */}
+                    <div className="pricing-card bg-canvas-soft border-2 border-primary p-8 rounded-md flex flex-col justify-between relative shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                      <span className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-on-primary text-[8px] font-mono font-bold uppercase tracking-widest px-3 py-1 rounded-sm">
+                        RECOMMENDED
+                      </span>
+                      <div>
+                        <h4 className="font-mono text-xs uppercase tracking-wider text-primary mb-2">Standard</h4>
+                        <div className="text-3xl font-extrabold text-ink font-mono">₹699<span className="text-xs text-mute font-normal"> / mo</span></div>
+                        <span className="text-[9px] text-primary uppercase font-mono">Complete Operating Stack</span>
+                        <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
+                          <li>• Full multi-tenancy dashboard</li>
+                          <li>• 10 Team Members active seats</li>
+                          <li>• Unlimited AI assistant queries</li>
+                          <li>• WhatsApp broadcast template APIs</li>
+                          <li>• Automated Stripe invoice alerts</li>
+                        </ul>
+                      </div>
+                      <Magnetic>
+                        <button
+                          onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                          className="w-full mt-8 bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer"
+                        >
+                          Choose Standard
+                        </button>
+                      </Magnetic>
+                    </div>
+
+                    {/* Plan 3 */}
+                    <div className="pricing-card bg-canvas-soft border border-hairline p-8 rounded-md flex flex-col justify-between hover:border-mute/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                      <div>
+                        <h4 className="font-mono text-xs uppercase tracking-wider text-mute mb-2">Premium</h4>
+                        <div className="text-3xl font-extrabold text-ink font-mono">₹1,999<span className="text-xs text-mute font-normal"> / mo</span></div>
+                        <span className="text-[9px] text-mute uppercase font-mono">Enterprise Workstation</span>
+                        <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
+                          <li>• Dedicated server instances</li>
+                          <li>• Multi-org child permissions</li>
+                          <li>• Custom branding white labeling</li>
+                          <li>• 24/7 Priority developer support</li>
+                        </ul>
+                      </div>
+                      <Magnetic>
+                        <button
+                          onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
+                          className="w-full mt-8 border border-hairline hover:bg-canvas text-ink text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer bg-canvas/30"
+                        >
+                          Choose Premium
+                        </button>
+                      </Magnetic>
+                    </div>
+                  </div>
+                </section>
+
+                {/* FAQ Section */}
+                <section id="faq" className="py-20 px-8 max-w-4xl mx-auto w-full z-10 relative border-t border-hairline/60">
+                  <div className="text-center mb-16">
+                    <span className="text-xs font-mono uppercase font-bold text-primary tracking-widest">[ Questions ]</span>
+                    <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-ink mt-2">Frequently Asked Questions</h3>
+                    <p className="text-mute text-xs mt-2">Everything you need to know about Clientoq.</p>
+                  </div>
+
                   <div className="space-y-4">
-                    <span className="block text-[10px] text-mute uppercase tracking-wider">Billing Ledger Ledger</span>
-                    <div className="border border-hairline rounded overflow-hidden">
-                      <table className="w-full text-[11px] text-left border-collapse">
-                        <thead>
-                          <tr className="bg-canvas/40 border-b border-hairline text-mute">
-                            <th className="p-3">Invoice Number</th>
-                            <th className="p-3">Client</th>
-                            <th className="p-3">Total Amount</th>
-                            <th className="p-3">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-hairline/30 bg-canvas/10">
-                          <tr>
-                            <td className="p-3 font-semibold">INV-2026-001</td>
-                            <td className="p-3 text-mute">Acme Corporation</td>
-                            <td className="p-3 font-bold text-primary">₹47,200</td>
-                            <td className="p-3">
-                              <span className="px-2 py-0.5 bg-yellow-950 text-yellow-300 font-bold uppercase text-[9px] rounded-xs">Sent</span>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 font-semibold">INV-2026-002</td>
-                            <td className="p-3 text-mute">Acme Corporation</td>
-                            <td className="p-3 font-bold text-primary">₹11,800</td>
-                            <td className="p-3">
-                              <span className="px-2 py-0.5 bg-green-950 text-green-300 font-bold uppercase text-[9px] rounded-xs">Paid</span>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                    {[
+                      {
+                        q: "How long does it take to set up Clientoq?",
+                        a: "Most agencies are up and running within 5 minutes. Simply sign up, configure your organization details, and start adding clients. The onboarding wizard guides you through each step."
+                      },
+                      {
+                        q: "Can I import my existing client data?",
+                        a: "Yes! Clientoq supports CSV imports for leads and clients. You can also manually enter data or use our API to integrate with other tools you currently use."
+                      },
+                      {
+                        q: "Is my data secure with Clientoq?",
+                        a: "Absolutely. We use bank-grade encryption for data at rest and in transit. Your data is stored in secure Indian data centers and we never share your information with third parties."
+                      },
+                      {
+                        q: "What payment gateways are supported?",
+                        a: "Clientoq integrates seamlessly with Razorpay and Stripe. You can accept payments via credit/debit cards, UPI, net banking, and wallets directly through your invoices."
+                      },
+                      {
+                        q: "Can I white-label the client portal?",
+                        a: "Yes! Premium plan users get full white-labeling capabilities including custom domain mapping, branded colors, and personalized logo placement on all client-facing interfaces."
+                      },
+                      {
+                        q: "How does the AI Assistant help my agency?",
+                        a: "The AI Assistant can draft proposals, generate invoice templates, summarize project statuses, draft WhatsApp message templates, and provide insights on client engagement — all powered by advanced language models."
+                      }
+                    ].map((faq, i) => (
+                      <details key={i} className="faq-item group bg-canvas-soft border border-hairline rounded-md overflow-hidden hover:border-primary/30 transition-colors">
+                        <summary className="flex items-center justify-between p-4 cursor-pointer list-none text-xs font-mono uppercase tracking-wider text-ink hover:text-primary transition-colors">
+                          <span className="pr-4">{faq.q}</span>
+                          <span className="faq-icon text-primary transition-transform duration-200 group-open:rotate-180">▼</span>
+                        </summary>
+                        <div className="px-4 pb-4 pt-0">
+                          <p className="text-body-text text-xs leading-relaxed font-sans border-t border-hairline/50 pt-3">
+                            {faq.a}
+                          </p>
+                        </div>
+                      </details>
+                    ))}
                   </div>
-                )}
 
-              </div>
-              <div className="border-t border-hairline bg-canvas p-4 text-center">
-                <button
-                  onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                  className="bg-primary hover:opacity-90 text-on-primary text-[10px] font-bold px-6 py-2.5 rounded-full uppercase tracking-widest font-sans active:scale-95 shadow-sm"
-                >
-                  Create Your Custom Console
-                </button>
-              </div>
-            </div>
-          </section>
+                  <div className="mt-12 text-center bg-canvas-soft border border-hairline rounded-lg p-8">
+                    <h4 className="text-sm font-bold text-ink uppercase font-mono tracking-wider mb-2">Still have questions?</h4>
+                    <p className="text-body-text text-xs mb-4">Our team is here to help you get started and answer any questions.</p>
+                    <a 
+                      href="/contact" 
+                      className="inline-flex items-center gap-2 bg-primary hover:opacity-90 text-on-primary text-xs font-bold px-6 py-3 rounded-full font-mono uppercase tracking-widest transition-all"
+                    >
+                      Contact Support
+                    </a>
+                  </div>
+                </section>
 
-          {/* Bento Feature Section */}
-          <section id="features" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
-            <div className="text-center mb-16">
-              <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Built For Acceleration</h2>
-              <h3 className="text-2xl font-bold tracking-tight text-ink mt-2">Fully Integrated Modular Architecture</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Feature 1 */}
-              <div className="bg-canvas-soft border border-hairline p-6 rounded-md md:col-span-2 flex flex-col justify-between hover:border-mute/40 transition-colors">
-                <div>
-                  <div className="text-2xl mb-4">⚡</div>
-                  <h4 className="text-base font-bold text-ink uppercase font-mono">Prospect Pipeline Management</h4>
-                  <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
-                    Capture customer leads, record follow-up history, and log contact activity logs. Transition qualified deals into operational workspaces.
-                  </p>
-                </div>
-                <div className="h-px bg-hairline my-6"></div>
-                <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Includes drag-and-drop stages</div>
-              </div>
-
-              {/* Feature 2 */}
-              <div className="bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col justify-between hover:border-mute/40 transition-colors">
-                <div>
-                  <div className="text-2xl mb-4">💬</div>
-                  <h4 className="text-base font-bold text-ink uppercase font-mono">Integrated WhatsApp Messaging</h4>
-                  <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
-                    Dispatch automated template notifications when tax bills are sent, monitor replies, and interact using a shared team inbox node.
-                  </p>
-                </div>
-                <div className="h-px bg-hairline my-6"></div>
-                <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Meta API compliant templates</div>
-              </div>
-
-              {/* Feature 3 */}
-              <div className="bg-canvas-soft border border-hairline p-6 rounded-md flex flex-col justify-between hover:border-mute/40 transition-colors">
-                <div>
-                  <div className="text-2xl mb-4">💰</div>
-                  <h4 className="text-base font-bold text-ink uppercase font-mono">Automated Financial Ledger</h4>
-                  <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
-                    Establish professional tax-compliant invoices, track billing states, and log agency expenses inside a unified financial register.
-                  </p>
-                </div>
-                <div className="h-px bg-hairline my-6"></div>
-                <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Multi-currency supported</div>
-              </div>
-
-              {/* Feature 4 */}
-              <div className="bg-canvas-soft border border-hairline p-6 rounded-md md:col-span-2 flex flex-col justify-between hover:border-mute/40 transition-colors">
-                <div>
-                  <div className="text-2xl mb-4">🧠</div>
-                  <h4 className="text-base font-bold text-ink uppercase font-mono">Clientoq Core AI Assistant</h4>
-                  <p className="text-body-text text-xs mt-2 leading-relaxed font-serif italic">
-                    Leverage standard LLM context to draft proposals, map task schedules from descriptions, generate code files, and compute agency margins.
-                  </p>
-                </div>
-                <div className="h-px bg-hairline my-6"></div>
-                <div className="text-[10px] text-mute font-mono uppercase tracking-wider">Powered by customized prompts</div>
-              </div>
-            </div>
-          </section>
-
-          {/* Pricing Section */}
-          <section id="pricing" className="py-20 px-8 max-w-5xl mx-auto w-full z-10 relative scroll-mt-16">
-            <div className="text-center mb-16">
-              <h2 className="text-xs font-mono uppercase font-bold text-primary tracking-widest">Transparent Tiers</h2>
-              <h3 className="text-2xl font-bold tracking-tight text-ink mt-2">Choose Plan Fitting Your Scale</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Plan 1 */}
-              <div className="bg-canvas-soft border border-hairline p-8 rounded-md flex flex-col justify-between hover:border-mute/40 transition-colors relative">
-                <div>
-                  <h4 className="font-mono text-xs uppercase tracking-wider text-mute mb-2">Basic</h4>
-                  <div className="text-3xl font-extrabold text-ink font-mono">₹0</div>
-                  <span className="text-[9px] text-mute uppercase font-mono">Lifetime Free for Solo Ops</span>
-                  <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
-                    <li>• Local SQLite file database</li>
-                    <li>• 1 active workspace tenant</li>
-                    <li>• 10 AI assistant prompts / mo</li>
-                    <li>• Basic manual invoices creator</li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                  className="w-full mt-8 border border-hairline hover:bg-canvas text-ink text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer"
-                >
-                  Choose Basic
-                </button>
-              </div>
-
-              {/* Plan 2 */}
-              <div className="bg-canvas-soft border-2 border-primary p-8 rounded-md flex flex-col justify-between relative shadow-2xl">
-                <span className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-on-primary text-[8px] font-mono font-bold uppercase tracking-widest px-3 py-1 rounded-sm">
-                  RECOMMENDED
-                </span>
-                <div>
-                  <h4 className="font-mono text-xs uppercase tracking-wider text-primary mb-2">Standard</h4>
-                  <div className="text-3xl font-extrabold text-ink font-mono">₹699<span className="text-xs text-mute font-normal"> / mo</span></div>
-                  <span className="text-[9px] text-primary uppercase font-mono">Complete Operating Stack</span>
-                  <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
-                    <li>• Full multi-tenancy dashboard</li>
-                    <li>• 10 Team Members active seats</li>
-                    <li>• Unlimited AI assistant queries</li>
-                    <li>• WhatsApp broadcast template APIs</li>
-                    <li>• Automated Stripe invoice alerts</li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                  className="w-full mt-8 bg-primary hover:opacity-90 text-on-primary text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer"
-                >
-                  Choose Standard
-                </button>
-              </div>
-
-              {/* Plan 3 */}
-              <div className="bg-canvas-soft border border-hairline p-8 rounded-md flex flex-col justify-between hover:border-mute/40 transition-colors">
-                <div>
-                  <h4 className="font-mono text-xs uppercase tracking-wider text-mute mb-2">Premium</h4>
-                  <div className="text-3xl font-extrabold text-ink font-mono">₹1,999<span className="text-xs text-mute font-normal"> / mo</span></div>
-                  <span className="text-[9px] text-mute uppercase font-mono">Enterprise Workstation</span>
-                  <ul className="mt-8 space-y-3 text-xs text-body-text font-serif italic">
-                    <li>• Dedicated server instances</li>
-                    <li>• Multi-org child permissions</li>
-                    <li>• Custom branding white labeling</li>
-                    <li>• 24/7 Priority developer support</li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => { setShowAuthModal(true); setAuthMode('register'); setAuthError(''); }}
-                  className="w-full mt-8 border border-hairline hover:bg-canvas text-ink text-xs font-bold py-3 rounded-sm font-mono uppercase tracking-widest cursor-pointer"
-                >
-                  Choose Premium
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Landing Footer */}
-          <Footer />
+                {/* Landing Footer */}
+                <Footer />
+              </SmoothScroll>
 
           {/* 1. AUTHENTICATION OVERLAY DIALOG */}
           {showAuthModal && (
@@ -1969,7 +2558,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                         <input
                           type="text"
                           className="w-full bg-canvas border border-hairline p-3 rounded-sm text-sm focus:outline-none focus:border-primary text-ink"
-                          placeholder="e.g. CodeCrest Studio"
+                          placeholder="e.g. Acme Studio"
                           value={orgName}
                           onChange={e => setOrgName(e.target.value)}
                           required
@@ -2007,7 +2596,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                     <input
                       type="email"
                       className="w-full bg-canvas border border-hairline p-3 rounded-sm text-sm focus:outline-none focus:border-primary text-ink"
-                      placeholder="syed@codecrest.com"
+                      placeholder="admin@client-oq.vercel.app"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required
@@ -2207,7 +2796,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                         </thead>
                         <tbody>
                           {(platformData?.organizations ?? [
-                            { id: 'mock-1', name: 'CodeCrest Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
+                            { id: 'mock-1', name: 'Acme Studio', plan: 'Premium', users: 8, mrr: '₹1,999', status: 'Active', joined: '2025-01' },
                             { id: 'mock-2', name: 'PixelForge Agency', plan: 'Standard', users: 5, mrr: '₹999', status: 'Active', joined: '2025-03' },
                             { id: 'mock-3', name: 'NovaByte Labs', plan: 'Standard', users: 3, mrr: '₹999', status: 'Active', joined: '2025-06' },
                             { id: 'mock-4', name: 'Crescent Digital', plan: 'Free', users: 1, mrr: '₹0', status: 'Trial', joined: '2026-01' },
@@ -2567,7 +3156,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                                   <label className="block text-[10px] font-bold text-mute uppercase font-mono mb-1">SMTP Sender Address ("From")</label>
                                   <input
                                     type="email"
-                                    placeholder="noreply@clientoq.com"
+                                    placeholder="noreply@client-oq.vercel.app"
                                     className="w-full bg-canvas-soft border border-hairline p-2 text-xs rounded font-sans focus:outline-none focus:border-primary text-ink"
                                     value={platformSettings.smtpFrom || ''}
                                     onChange={e => setPlatformSettings({ ...platformSettings, smtpFrom: e.target.value })}
@@ -3060,39 +3649,47 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                 <div className="space-y-8">
                   {/* KPI Cards Bento Grid */}
                   <div className="grid grid-cols-4 gap-6">
-                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md hover:border-primary/30 transition-all duration-300 hover:shadow-xs">
                       <div className="flex items-center justify-between text-mute mb-2">
                         <span className="text-xs font-mono uppercase tracking-wider font-semibold">Total Revenue</span>
                         <DollarSign size={16} />
                       </div>
-                      <div className="text-2xl font-bold tracking-tight">₹{dashboardData.kpis.revenue.toLocaleString()}</div>
+                      <div className="text-2xl font-bold tracking-tight">
+                        <AnimatedNumber value={dashboardData.kpis.revenue} prefix="₹" />
+                      </div>
                       <span className="text-[10px] text-green-400 font-mono mt-1 block">▲ +12% since last month</span>
                     </div>
 
-                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md hover:border-primary/30 transition-all duration-300 hover:shadow-xs">
                       <div className="flex items-center justify-between text-mute mb-2">
                         <span className="text-xs font-mono uppercase tracking-wider font-semibold">Expenses Log</span>
                         <TrendingUp size={16} />
                       </div>
-                      <div className="text-2xl font-bold tracking-tight">₹{dashboardData.kpis.expenses.toLocaleString()}</div>
+                      <div className="text-2xl font-bold tracking-tight">
+                        <AnimatedNumber value={dashboardData.kpis.expenses} prefix="₹" />
+                      </div>
                       <span className="text-[10px] text-mute font-mono mt-1 block">Includes Google Ads Q2</span>
                     </div>
 
-                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md hover:border-yellow-500/30 transition-all duration-300 hover:shadow-xs">
                       <div className="flex items-center justify-between text-mute mb-2">
                         <span className="text-xs font-mono uppercase tracking-wider font-semibold">Outstanding Invoiced</span>
                         <DollarSign size={16} className="text-yellow-400" />
                       </div>
-                      <div className="text-2xl font-bold tracking-tight text-yellow-400">₹{dashboardData.kpis.outstanding.toLocaleString()}</div>
+                      <div className="text-2xl font-bold tracking-tight text-yellow-400">
+                        <AnimatedNumber value={dashboardData.kpis.outstanding} prefix="₹" />
+                      </div>
                       <span className="text-[10px] text-yellow-400/80 font-mono mt-1 block">Pending client approvals</span>
                     </div>
 
-                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md">
+                    <div className="bg-canvas-soft border border-hairline p-6 rounded-md hover:border-primary/30 transition-all duration-300 hover:shadow-xs">
                       <div className="flex items-center justify-between text-mute mb-2">
                         <span className="text-xs font-mono uppercase tracking-wider font-semibold">Active Operations</span>
                         <Briefcase size={16} />
                       </div>
-                      <div className="text-2xl font-bold tracking-tight">{dashboardData.kpis.activeProjects} Projects</div>
+                      <div className="text-2xl font-bold tracking-tight">
+                        <AnimatedNumber value={dashboardData.kpis.activeProjects} suffix=" Projects" />
+                      </div>
                       <span className="text-[10px] text-mute font-mono mt-1 block">{dashboardData.kpis.activeClients} client accounts active</span>
                     </div>
                   </div>
@@ -4889,7 +5486,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                         <div className="bg-canvas-soft border border-hairline/60 p-3 rounded space-y-1.5 text-[10px]">
                           <div><span className="text-mute">Webhook Endpoint URL:</span></div>
                           <div className="text-ink select-all break-all bg-canvas px-1 py-0.5 border border-hairline/30 rounded text-[9px]">
-                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/stripe` : 'http://localhost:3000/api/webhooks/stripe'}
+                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/stripe` : 'https://client-oq.vercel.app/api/webhooks/stripe'}
                           </div>
                           <div><span className="text-mute">Listening events:</span></div>
                           <div className="text-primary font-bold">invoice.payment_succeeded</div>
@@ -5995,7 +6592,7 @@ ${user?.organizationName || 'CodeCrest Studio'}`;
                                       <input
                                         type="text"
                                         readOnly
-                                        value={`${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/?auth=register&inviteToken=${inv.token}`}
+                                        value={`${typeof window !== 'undefined' ? window.location.origin : 'https://client-oq.vercel.app'}/?auth=register&inviteToken=${inv.token}`}
                                         className="bg-canvas border border-hairline p-1 rounded text-[10px] text-mute w-48 font-mono select-all focus:outline-none"
                                         onClick={(e) => (e.target as any).select()}
                                       />

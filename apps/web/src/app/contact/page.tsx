@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
+import SmoothScroll from '../../components/motion/SmoothScroll';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -40,8 +41,9 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans selection:bg-primary selection:text-on-primary">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
+      <SmoothScroll>
+        <Header />
+        <main className="flex-1 max-w-4xl mx-auto w-full py-20 px-8 flex flex-col gap-12" id="main-content">
         <div className="flex flex-col gap-4 text-center max-w-2xl mx-auto">
           <span className="text-[10px] font-semibold text-primary tracking-widest">[ Contact Support ]</span>
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-ink leading-tight font-serif italic">
@@ -133,7 +135,7 @@ export default function ContactPage() {
                       type="email"
                       required
                       className="w-full bg-canvas border border-hairline p-3 rounded-md text-xs focus:outline-none focus:border-primary text-ink font-sans"
-                      placeholder="e.g. hi@clientoq.com"
+                      placeholder="e.g. hi@client-oq.vercel.app"
                       value={form.email}
                       onChange={e => setForm({ ...form, email: e.target.value })}
                     />
@@ -179,6 +181,7 @@ export default function ContactPage() {
         </div>
       </main>
       <Footer />
+      </SmoothScroll>
     </div>
   );
 }

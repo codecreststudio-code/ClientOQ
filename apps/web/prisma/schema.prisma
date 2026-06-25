@@ -100,6 +100,10 @@ model UserSession {
   ipAddress  String?
   expiresAt  DateTime
   createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([deviceInfo, expiresAt])
 }
 
 model LoginAttempt {
@@ -108,6 +112,9 @@ model LoginAttempt {
   ipAddress String?
   success   Boolean
   createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
 }
 
 model Lead {
@@ -130,6 +137,10 @@ model Lead {
 
   activities     LeadActivity[]
   proposals      Proposal[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([organizationId, status])
 }
 
 model LeadActivity {
@@ -165,6 +176,8 @@ model Client {
   invoices       Invoice[]
   whatsappConversations WhatsAppConversation[]
   subscriptions  ClientSubscription[]
+
+  @@index([organizationId])
 }
 
 model ClientContact {
@@ -227,6 +240,10 @@ model Task {
   comments       TaskComment[]
   checklists     TaskChecklist[]
   timeLogs       TimeLog[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
 }
 
 model TaskComment {
@@ -334,6 +351,9 @@ model Invoice {
 
   items          InvoiceItem[]
   payments       Payment[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model InvoiceItem {

@@ -67,15 +67,21 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Notify the agency
-    await prisma.notification.create({
-      data: {
-        userId: invoice.organizationId, // Ideally linked to an Owner, we'll use orgId as a fallback if the schema allows, or skip
-        title: 'Invoice Paid!',
-        message: `Client paid invoice ${invoice.invoiceNumber} via Razorpay.`,
-        type: 'Payment',
-      }
-    }).catch(() => {});
+    // Notify the agency owner(s)
+    const orgOwners = await prisma.user.findMany({
+      where: { organizationId: invoice.organizationId, role: 'Owner' },
+      select: { id: true }
+    });
+    for (const owner of orgOwners) {
+      await prisma.notification.create({
+        data: {
+          userId: owner.id,
+          title: 'Invoice Paid!',
+          message: `Client paid invoice ${invoice.invoiceNumber} via Razorpay.`,
+          type: 'Payment',
+        }
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

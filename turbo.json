@@ -9,7 +9,12 @@
     "NEXT_PUBLIC_API_URL",
     "NODE_ENV",
     "SENTRY_DSN",
-    "SENTRY_AUTH_TOKEN"
+    "SENTRY_AUTH_TOKEN",
+    "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    "SUPER_ADMIN_EMAILS",
+    "CONTACT_TO_EMAIL",
+    "RAZORPAY_WEBHOOK_SECRET",
+    "NEXT_PUBLIC_ENABLE_MOCK_API"
   ],
   "tasks": {
     "build": {
@@ -21,7 +26,8 @@
         "JWT_SECRET",
         "PORT",
         "GOOGLE_CLIENT_ID",
-        "NEXT_PUBLIC_API_URL"
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_GOOGLE_CLIENT_ID"
       ]
     },
     "dev": {
